@@ -67,14 +67,13 @@ def four_quads(strengths, Lquad, Ldrift, N_particles, Energy, finalDrift=False):
 
     Twiss.beta_x = (1/geo_emm)  # m
     Twiss.beta_y = (1/geo_emm)
-    # Twiss.beta_x = 1 * (1 + np.sin(np.radians(mu/2))) / np.sin(np.radians(mu))  # m
-    # Twiss.beta_y = 1 * (1 - np.sin(np.radians(mu/2))) / np.sin(np.radians(mu))
+
     Twiss.alpha_x = 0.0
     Twiss.alpha_y = 0.0  # at symmetry points (inside quads)
 
-    # bunch = RFT.Bunch6d(mass, N_particles, charge, np.array([ x, xp, y, yp, T, P ]) )
+    bunch = RFT.Bunch6d(mass, N_particles, charge, np.array([ x, xp, y, yp, T, P ]) )
     # bunch= RFT.Bunch6d( np.array([ x, xp, y, yp, T, P,  MASS, Q, np.ones(N_particles) ]) )
-    bunch = RFT.Bunch6d(mass, 1, charge, Pref, Twiss, N_particles)
+    # bunch = RFT.Bunch6d(mass, 1, charge, Pref, Twiss, N_particles)
     B1 = lattice.track(bunch)
     T = lattice.get_transport_table(
         '%S %beta_x %beta_y %alpha_x %alpha_y %sigma_x %sigma_y %sigma_px %sigma_py')
