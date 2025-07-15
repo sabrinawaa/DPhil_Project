@@ -206,6 +206,25 @@ class partrec_gaussian_optimiser_utils():
             # increment to begin next slice until shape completion
             i = i + 1
 
+    def add_collimator(self, Rmax, Rmin, length, position):
+        file = self.file
+        # define collimator as cylinder
+        file.write('s:Ge/Collimator/Type = "TsCylinder"\n')
+        # set parent to world
+        file.write('s:Ge/Collimator/Parent = "World"\n')
+        # set material - vacuum for simplicity
+        file.write('s:Ge/Collimator/Material="Lead"\n')
+        # set radius of collimator
+        file.write("d:Ge/Collimator/Rmax = " + str(Rmax) + " mm\n")
+        # set inner radius to 0 - solid collimator
+        file.write("d:Ge/Collimator/Rmin = " + str(Rmin) + " mm\n")
+        # set half length of collimator
+        # topas works with half lengths rather than full lengths
+        file.write("d:Ge/Collimator/HL = " + str(length/2)+ " mm   \n")  # set arbitrary length
+        # set position of collimator at appropriate distance from beam source
+        file.write("d:Ge/Collimator/TransZ = -" + str(position) + " mm\n")
+       
+
     def add_patient(self, position):
         file = self.file
         # define scorer surface
@@ -305,7 +324,7 @@ class partrec_gaussian_optimiser_utils():
         file.write("u:Ge/Dipole/MagneticFieldDirectionZ=0.0\n")
         file.write("d:Ge/Dipole/MagneticFieldStrength="+str(strength)+" T\n")
 
-#importing rf track
+#importing rf track output phase space file into topas phsp format
     def export_phsp(self, R, path_to_phsp_file):
         X = R[:, 0]
         PX = R[:, 1]
@@ -360,7 +379,7 @@ class partrec_gaussian_optimiser_utils():
     # rather than .phsp
 
 
-    def write_header(self, R, path_to_header_file):
+    def write_header(self, R, path_to_header_file): # header file for phsp from rf track
         file = self.file
         E = R[:, 4] #changed from 5 to 4
         N_particles_str = str(len(E))
