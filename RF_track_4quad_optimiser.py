@@ -10,7 +10,7 @@ q2k1 = 0
 q3k1 = 0
 q4k1 = 0
 drift_l = 0.2
-
+aperture = 0.019  # m
 
 def four_quads(strengths, Lquad, Ldrift, N_particles, Energy, finalDrift=False):
 
@@ -21,6 +21,8 @@ def four_quads(strengths, Lquad, Ldrift, N_particles, Energy, finalDrift=False):
     Drift = RFT.Drift(Ldrift)
     fDrift = RFT.Drift(2.5)
     Drift.set_tt_nsteps(50)
+    for i in [Q1, Q2, Q3, Q4, Drift]:
+        i.set_aperture(aperture,aperture,'circular')  # m
 
     # lattice
     lattice = RFT.Lattice()
@@ -153,6 +155,8 @@ def optimize_four_quads(N):
         fDrift = RFT.Drift(2.5)
         Drift = RFT.Drift(Ldrift)
         Drift.set_tt_nsteps(50)
+        for i in [Q1, Q2, Q3, Q4, Drift]:
+            i.set_aperture(aperture,aperture,'circular')  
 
         # lattice
         lattice = RFT.Lattice()
@@ -170,37 +174,29 @@ def optimize_four_quads(N):
         # ttable = lattice.get_transport_table("%beta_x %beta_y")
         # beta_x, beta_y = ttable[:, 0], ttable[:, 1]
 
-        E = Energy  # MeV
+    
         #N_particles = int(N_particles)
         charge = -1
 
         mass = RFT.electronmass
-        rel_gamma = E/mass
-        rel_beta = np.sqrt(1-1/(rel_gamma**2))
 
-        Pref = Energy
-      # 200 MeV ± 0.5%
+        sigma_x, sigma_y = 1, 1
+        sigma_xp, sigma_yp = 1, 1
 
-        Twiss = RFT.Bunch6d_twiss()  # maybe need to set emittance?
-        Twiss.emitt_x = 10  # mm mrad normalised
-        Twiss.emitt_y = 10
-        geo_emm = Twiss.emitt_x / (rel_beta * rel_gamma)
+        x = np.random.normal(0, sigma_x, N_particles)
+        xp = np.random.normal(0, sigma_xp, N_particles)
+        y = np.random.normal(0, sigma_y, N_particles)
+        yp = np.random.normal(0, sigma_yp, N_particles)
+        P = Energy * (1 + np.random.normal(0, 0.005, N_particles))  # 200 MeV ± 0.5%
+        T = np.zeros(N_particles)
+        matrix = np.column_stack((x, xp, y, yp, T, P)) #transpose to match Bunch6d format
 
-        Twiss.beta_x = (1/geo_emm)  # m
-        Twiss.beta_y = (1/geo_emm)
-        # Twiss.beta_x = 1 * (1 + np.sin(np.radians(mu/2))) / np.sin(np.radians(mu))  # m
-        # Twiss.beta_y = 1 * (1 - np.sin(np.radians(mu/2))) / np.sin(np.radians(mu))
-        Twiss.alpha_x = 0.0
-        Twiss.alpha_y = 0.0  # at symmetry points (inside quads)
+        bunch = RFT.Bunch6d(mass, N_particles, charge, matrix )
 
-        # bunch = RFT.Bunch6d(mass, N_particles, charge, np.array([ x, xp, y, yp, T, P ]) )
-        # bunch= RFT.Bunch6d( np.array([ x, xp, y, yp, T, P,  MASS, Q, np.ones(N_particles) ]) )
-        bunch = RFT.Bunch6d(mass, 1, charge, Pref, Twiss, N_particles)
         B1 = lattice.track(bunch)
         # required terms taken from TT
         T = lattice.get_transport_table(
             '%sigma_x %sigma_y %alpha_x %alpha_y %sigma_px %sigma_py')
-
         sx = T[-1, 0]
         sy = T[-1, 1]
         ax = T[-1, 2]
@@ -224,6 +220,7 @@ def optimize_four_quads(N):
         return M
     # initialise randomiser
     rng = np.random.default_rng()
+
     minResult = np.inf
     # loop to allow random initialisations of quad values in optimiser
     for i in range(N):
@@ -231,7 +228,7 @@ def optimize_four_quads(N):
         opt_input = rng.uniform(low=-75, high=75, size=4)
         # scipy.optimize.minimise implemented to minimise four_quads_merit from randomised quad input with finalDrift=True
         # run with 1000 particles for the sake of time (each minimiser runs is running four_quads_merit thousands of times
-        res = minimize(four_quads_merit, x0=opt_input, args=(0.3, 0.2, 1000, 200, True), bounds=(
+        res = minimize(four_quads_merit, x0=opt_input, args=(0.3, 0.2, 100, 200, True), bounds=(
             (-75, 75), (-75, 75), (-75, 75), (-75, 75)), method='Nelder-Mead')
         print('M = '+str(res.fun)+', X0='+str(res.x))
         # after each minimisation in loop, check to see if this is the best solution and update minResul
@@ -241,12 +238,12 @@ def optimize_four_quads(N):
     # print best result and run four_quads using these strengths to investigate evolution of twiss parameters and beamsize
     print('Optimization Result: X=')
     print(minInput)
-    four_quads(minInput, 0.3, 0.2, 100000, 200, True)
+    # four_quads(minInput, 0.3, 0.2, 100000, 200, True)
 
 
 # run optimiser 20 times and print results. Small value of M is best! Under 0.1 is very good
 # even with 1000 particles, each minimisation takes up to a minute, so running the loop 20 times like here may take 20 mins
-optimize_four_quads(20)
+optimize_four_quads(10)
 
 
 # this is a solutino which produces a mostly symmetrical 75x75mm beam at the end of the TOPAS geometry, with no scatterers
