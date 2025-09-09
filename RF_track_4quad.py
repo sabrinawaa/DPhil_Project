@@ -15,11 +15,12 @@ def gaussian(x,A,mu,sig):
 
 
 def four_quads(Lquad, k11, k12, k13, k14, Ldrift, N_particles, Energy ,L_drift_after=0, plot=True, saveparams=True):
-    Q1 =RFT.Quadrupole(Lquad, Energy, k11) 
-    Q2 = RFT.Quadrupole(Lquad, Energy, k12)
-    Q3 = RFT.Quadrupole(Lquad, Energy, k13)
-    Q4 = RFT.Quadrupole(Lquad, Energy, k14)
-    Drift = RFT.Drift(Ldrift +L_drift_after)
+    Q1 =RFT.Quadrupole(Lquad, -Energy, k11) 
+    Q2 = RFT.Quadrupole(Lquad, -Energy, k12)
+    Q3 = RFT.Quadrupole(Lquad, -Energy, k13)
+    Q4 = RFT.Quadrupole(Lquad, -Energy, k14)
+    Drift = RFT.Drift(Ldrift)
+    Drift_after = RFT.Drift(L_drift_after) if L_drift_after > 0 else None
     for i in [Q1, Q2, Q3, Q4, Drift]:
         i.set_aperture(aperture,aperture,'circular')  # m
     Drift.set_tt_nsteps(50)  
@@ -34,6 +35,8 @@ def four_quads(Lquad, k11, k12, k13, k14, Ldrift, N_particles, Energy ,L_drift_a
     lattice.append(Drift)
     lattice.append(Q4)
     lattice.append(Drift)
+    if Drift_after is not None:
+        lattice.append(Drift_after)
 
     # ttable = lattice.get_transport_table("%beta_x %beta_y")
     # beta_x, beta_y = ttable[:, 0], ttable[:, 1]

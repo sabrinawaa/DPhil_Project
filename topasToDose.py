@@ -8,8 +8,8 @@ def getDosemap(filePath,simParticles,dose_depth,outputFileName,acChargenC=10, pl
     
     doseMap = BinnedResult(filePath)#  2D array where each element corresponds to the dose deposited in a specific bin. The dose information is stored in the numerical values of the array elements.
     rawDosemap=np.squeeze(doseMap.data['Sum'])
-    x,y = doseMap.dimensions[0].get_bin_centers(), doseMap.dimensions[0].get_bin_centers()
-    ratio = (x[1] - x[0])
+    x,y = doseMap.dimensions[0].get_bin_centers(), doseMap.dimensions[0].get_bin_centers() #converts bins to cm
+    x,y = x * 10, y * 10  # Convert from cm to mm
     eCharge=1.60217663e-19
     trueChargenC=(simParticles * eCharge)*1e9
     scalingFactor=acChargenC/trueChargenC
@@ -36,8 +36,8 @@ def getDosemap(filePath,simParticles,dose_depth,outputFileName,acChargenC=10, pl
         ax_main = fig.add_subplot(grid[1:, :-1])
         im = ax_main.imshow(scaledDosemap, cmap='viridis', origin='lower')
         ax_main.set_title("Dose Map at Depth =" + str(dose_depth) + "mm")
-        ax_main.set_xlabel("X (mm)")
-        ax_main.set_ylabel("Y (mm)")
+        ax_main.set_xlabel("X bins")
+        ax_main.set_ylabel("Y bins")
         cbar = plt.colorbar(im, ax=ax_main, orientation='vertical', fraction=0.046, pad=0.04)
         cbar.set_label("Dose (Gy)")
 

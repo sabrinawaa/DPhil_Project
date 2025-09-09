@@ -12,6 +12,8 @@ from scipy.stats import norm
 import matplotlib.pyplot as plt
 from astropy.table import Table
 from astropy.io import ascii
+from topasToDose import getDosemap
+from uniformity_fit import *
 # class of methods used for generating topas scripts for scattering foils
 
 
@@ -44,6 +46,9 @@ class partrec_gaussian_optimiser_utils():
     # define Gaussian beam in terms of phase space parameters
     # sigma, sigmap, E in mm, mrad, MeV respectively
 
+    def mute_terminal_output(self):
+        self.file.write('b:Ts/QuietMode = "True"  \n')
+        
     def generate_phsp_beam(self, sigma_x, sigma_y, sigma_px, sigma_py, E, delta_E, N):
         file = self.file
         # initialise beam
@@ -213,7 +218,7 @@ class partrec_gaussian_optimiser_utils():
         # set parent to world
         file.write('s:Ge/Collimator/Parent = "World"\n')
         # set material - vacuum for simplicity
-        file.write('s:Ge/Collimator/Material="Lead"\n')
+        file.write('s:Ge/Collimator/Material="G4_W"\n')
         # set radius of collimator
         file.write("d:Ge/Collimator/Rmax = " + str(Rmax) + " mm\n")
         # set inner radius to 0 - solid collimator
@@ -454,3 +459,4 @@ class partrec_gaussian_optimiser_utils():
             + self.file_directory
             + topas_filename
         )
+

@@ -7,6 +7,7 @@ from topasToDose import getDosemap
 def supergaussian(x, y, A, x0, y0, sigma_x, sigma_y, P):
     return A * np.exp(-( (x-x0)**2 /(2*sigma_x**2) + (y-y0)**2 /(2*sigma_y**2))**P)
 
+
 def supergaussian1D(x, A, x0, sigma_x, P):
     return A * np.exp(-( (x-x0)**2 /(2*sigma_x**2) )**P)
 
@@ -49,10 +50,10 @@ def plotDoseMap(x, y, doseMap,fitted_map,P,sig,r_90, depth,output_filename):
     ax_x.set_title("X Histogram")
     ax_x.tick_params(axis='x', which='both', bottom=False, labelbottom=False)
     ax_x.legend()
-    print(y[:,0])
+
     # Histogram along Y-axis
     ax_y = fig.add_subplot(grid[1:, -1], sharey=ax_main)
-    print(y[1,0] - y[0,0])
+
     # ax_y.barh(y[:,0], dose_y, height=(y[1,0] - y[0,0]), alpha=0.4, label="fitted", color="blue", edgecolor="black")
     ax_y.plot(dose_y, y[:,0], label="fitted", color="blue")
     ax_y.barh(y[:,0], orig_dose_y, height=(y[1,0] - y[0,0]), alpha=0.4, label="orig", color="green", edgecolor="black")
@@ -65,8 +66,12 @@ def plotDoseMap(x, y, doseMap,fitted_map,P,sig,r_90, depth,output_filename):
     # plt.show()
     plt.savefig("Output_figs/" +output_filename+ f"Depth{depth}_SupergaussianFit.png")
 
-def fitDoseMap (n_particles, dose_depth,output_filename, zoom_factor=1):
+def fitDoseMap (n_particles, dose_depth,output_filename, zoom_factor=1, plot=True):
     x,y, doseMap = getDosemap("DoseAtTank"+str(dose_depth)+".csv",n_particles, dose_depth, output_filename, plot = False)
+    print(doseMap.shape)
+    
+    print(x.shape)
+    print(y.shape)
     x_center = (x.max() + x.min()) / 2  # Find the midpoint of x
     y_center = (y.max() + y.min()) / 2  # Find the midpoint of y
 
@@ -80,7 +85,7 @@ def fitDoseMap (n_particles, dose_depth,output_filename, zoom_factor=1):
     x,y,doseMap = x[lower_index:upper_index, lower_index:upper_index],y[lower_index:upper_index, lower_index:upper_index], doseMap[lower_index:upper_index, lower_index:upper_index]  #only the central 60% of the beam
     
     
-    p0=[0.2, np.max(x)//2, np.max(y)//2, 8, 8, 6]
+    p0=[0.2, np.max(x)//2, np.max(y)//2, 60, 60, 6]
     #curvefit 2d histogram to supergaussian
     # Perform the optimization
     result = minimize(MSE, p0, args=(x, y, doseMap), method='L-BFGS-B')
@@ -88,16 +93,21 @@ def fitDoseMap (n_particles, dose_depth,output_filename, zoom_factor=1):
 
     # Calculate the fitted super-Gaussian
     fitted_map = supergaussian(x, y, *fit_params)
+    print(fitted_map.shape)
     sig, P = fit_params[3], fit_params[5]
     r_90 = r90(sig,P)
-    plotDoseMap(x, y, doseMap,fitted_map,P,sig,r_90, dose_depth, output_filename)
+    if plot:
+        plotDoseMap(x, y, doseMap,fitted_map,P,sig,r_90, dose_depth, output_filename)
+    else:
+        return fitted_map, P, sig, r_90
+    
 
 
 
 
     
 def main():
-    n_particles = 100000
+    n_particles = 10000
     dose_depth = 100
     output_filename = "ini_trial"
     
@@ -105,7 +115,7 @@ def main():
     
     
 
-# main()
+main()
         
 
 

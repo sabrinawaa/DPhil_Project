@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import norm
 from scipy.optimize import minimize
+from partrec_gaussian_optimiser_utils import partrec_gaussian_optimiser_utils
 
 class RF_track_utils():
     # set filepaths and number of threads available
@@ -26,10 +27,10 @@ class RF_track_utils():
         self.lattice = RFT.Lattice()
         
         Drift = RFT.Drift(drift_length)
-        Drift.set_aperture(aperture, aperture, 'circular')  # set aperture for drift
+        Drift.set_aperture(aperture, aperture, 'circular')  # set aperture for drift PUT BACK!!!!!!!!!!!!!!!!!!!!
         for k1 in k1s:
             quad = RFT.Quadrupole(quad_length, -self.energy, k1)
-            quad.set_aperture(aperture, aperture, 'circular')  # set aperture for quadrupole
+            quad.set_aperture(aperture, aperture, 'circular')  # set aperture for quadrupole.  PUT BACK!!!!!!!!!!!!!!!!!!!!
             self.lattice.append(quad)
             self.lattice.append(Drift)
         Drift.set_tt_nsteps(50)  # set number of steps for transport table
@@ -147,52 +148,3 @@ class RF_track_utils():
         fig.savefig(f"Output_figs/RFT_k1s={k1s_str}.png")
 
 
-def optimise_k1s(N_particles, energy, N_trials=10, sGoal=40, n_quads=4):
-    """Optimize quadrupole strengths to minimize beam mismatch.
-    
-    Args:
-        N_particles: Number of particles for tracking
-        energy: Beam energy in MeV
-        N_trials: Number of random initializations
-        sGoal: Target beam size (mm)
-        n_quads: Number of quadrupoles to optimize (default=4)
-    """
-    def merit_function(k1s):
-        """Function to minimize - creates new lattice and tracks bunch."""
-        quadlattice = RF_track_utils(energy, k1s=k1s)
-        quadlattice.add_drift(2.5)  # Add drift after quadrupoles to reach water phantom
-        quadlattice.track_bunch(N_particles, saveparams=False, 
-                              E_deviation=0.5, 
-                              sigma_x=1, sigma_xp=1, 
-                              sigma_y=1, sigma_yp=1)
-        T = quadlattice.transport_table[-1]  # Get end values
-        sx, sy, ax, ay = T[5], T[6], T[3], T[4]
-        
-        M = (1000*(sx/sGoal-1)**2 + 1000*(sy/sGoal-1)**2 +
-            np.exp(ax) + 10000*(ax/ay-1)**2)
-        return M
-
-    # Optimization loop
-    rng = np.random.default_rng()
-    best_result = None
-    best_merit = np.inf
-    
-    for _ in range(N_trials):
-        # Random initial guess within bounds
-        x0 = rng.uniform(low=-75, high=75, size=n_quads)
-        
-        res = minimize(merit_function,
-                      x0=x0,
-                      bounds=[(-75, 75)]*n_quads,
-                      method='Nelder-Mead')
-        
-        print(f'Trial {_}: M={res.fun:.2f}, k1s={res.x}')
-        
-        if res.fun < best_merit:
-            best_merit = res.fun
-            best_result = res
-            
-    print('\nOptimization Complete:')
-    print(f'Best M = {best_merit:.2f}')
-    print(f'Optimal k1s = {best_result.x}')
-    return best_result.x
