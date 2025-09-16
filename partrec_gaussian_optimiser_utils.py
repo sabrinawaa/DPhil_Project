@@ -26,7 +26,7 @@ class partrec_gaussian_optimiser_utils():
         home_directory="/Applications/",
         no_of_threads="6",
         input_filename="topas_main.txt",
-        file_directory = '/Users/sabrinawang/Desktop/Cameron_Project/'
+        file_directory = '/Users/sabrinawang/Desktop/DPhil_Project/'
     ):
         # write new topas script
         file = open(file_directory + input_filename, "w")
@@ -278,7 +278,7 @@ class partrec_gaussian_optimiser_utils():
         file.write("d:Ge/Tank/TransZ=-" +
                    str(position+depth/2) + " mm\n")
         
-    def add_tank_bins(self, position, depth, x_bins, y_bins, z_bins):
+    def add_tank_bins(self, position, depth, x_bins, y_bins, z_bins, output_filename):
         file = self.file
         file.write('s:Ge/Tank/Type="TsBox"\n')
         file.write('s:Ge/Tank/Parent = "World"\n')
@@ -296,9 +296,9 @@ class partrec_gaussian_optimiser_utils():
         file.write('s:Sc/DoseAtTank/Quantity = "DoseToMedium" \n')
         file.write('s:Sc/DoseAtTank/Component = "Tank"\n')
         file.write('s:Sc/DoseAtTank/Surface = "Tank/ZPlusSurface"\n')
-        file.write('s:Sc/DoseAtTank/OnlyIncludeParticlesOfGeneration = "Primary"\n')
+        # file.write('s:Sc/DoseAtTank/OnlyIncludeParticlesOfGeneration = "Primary"\n')
         # output as csv file
-        file.write('s:Sc/DoseAtTank/OutputFile = "DoseAtTank' + str(depth) + '"\n')
+        file.write('s:Sc/DoseAtTank/OutputFile = "DoseAtTank' + str(depth) + '_'+ output_filename+'"\n')
         file.write('s:Sc/DoseAtTank/OutputType = "CSV"\n')
         file.write('s:Sc/DoseAtTank/IfOutputFileAlreadyExists = "Overwrite"\n')
         # reduce terminal output to improve RunTime and reduce clutter
