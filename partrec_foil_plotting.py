@@ -134,7 +134,9 @@ class partrec_foil_plotting:
                 str(len(col_phsp["X"]) / len(phsp["X"]) * 100) +" %"
             )
             print("Mean Energy at Dump:" + str(np.mean(col_phsp["E"])))
+            print("Energy Spread at Dump:" + str((np.max(col_phsp["E"])-np.min(col_phsp["E"]))/np.mean(col_phsp["E"])*100)+" %")
 
         if particle == 'y':
             print("Photon number inside r90= "+ str(len(col_phsp["X"])))
+            print("Energy Spread at Dump:" + str((np.max(col_phsp["E"])-np.min(col_phsp["E"]))/np.mean(col_phsp["E"])*100)+" %")
 #

@@ -176,7 +176,6 @@ class partrec_gaussian_optimiser_utils():
             # skip relevant rows
             L = y[i] - y[i - 1]
             HL = L / 2
-
             # define slice name - required for Topas
             sname = "slice" + str(i)
             file.write("d:Ge/" + sname + "/HL = " + str(HL) + " mm\n")
@@ -276,7 +275,7 @@ class partrec_gaussian_optimiser_utils():
         file.write("d:Ge/Tank/HLY = 0.1 m\n")
         file.write("d:Ge/Tank/HLZ = " + str(depth / 2) + " mm\n")
         file.write("d:Ge/Tank/TransZ=-" +
-                   str(position+depth/2) + " mm\n")
+                   str(position+depth/2) + " mm\n") #transZ is position of centre of tank
         
     def add_tank_bins(self, position, depth, x_bins, y_bins, z_bins, output_filename):
         file = self.file
@@ -285,8 +284,8 @@ class partrec_gaussian_optimiser_utils():
         # set arbitrary material - vacuum for simplicity
         file.write('s:Ge/Tank/Material="G4_WATER"\n')
         # set arbitrarily large surface area of scorer
-        file.write("d:Ge/Tank/HLX = 0.15 m\n")
-        file.write("d:Ge/Tank/HLY = 0.15 m\n")
+        file.write("d:Ge/Tank/HLX = 0.15 m\n") #change back to 0.15!!!!!!
+        file.write("d:Ge/Tank/HLY = 0.15 m\n") #change back to 0.15!!!!!!
         file.write("d:Ge/Tank/HLZ = " + str(depth / 2) + " mm\n")
         file.write("d:Ge/Tank/TransZ=-" +
                    str(position+depth/2) + " mm\n")
