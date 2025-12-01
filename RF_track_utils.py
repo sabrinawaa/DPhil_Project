@@ -1,9 +1,9 @@
 import RF_Track as RFT
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.stats import norm
-from scipy.optimize import minimize
+from scipy.stats import qmc, norm
 from partrec_gaussian_optimiser_utils import partrec_gaussian_optimiser_utils
+
 
 class RF_track_utils():
     # set filepaths and number of threads available
@@ -18,7 +18,8 @@ class RF_track_utils():
         #set constants
         quad_length = float(0.3)  # m
         drift_length = float(0.2)
-        aperture = float(0.019)    # m
+        # aperture = float(0.019)    # m
+        aperture = float(0.1)    # m
 
         self.energy = float(energy)
         self.k1s = k1s
@@ -33,7 +34,8 @@ class RF_track_utils():
             quad.set_aperture(aperture, aperture, 'circular')  # set aperture for quadrupole.  PUT BACK!!!!!!!!!!!!!!!!!!!!
             self.lattice.append(quad)
             self.lattice.append(Drift)
-        Drift.set_tt_nsteps(50)  # set number of steps for transport table
+        # Drift.set_tt_nsteps(100)  # set number of steps for transport table
+        # quad.set_tt_nsteps(100)
 
     
         
@@ -47,11 +49,14 @@ class RF_track_utils():
         return A * np.exp(- (x-mu)**2 /(2*sig**2))
 
     def add_quadrupole(self, Lquad, k1):
-        self.lattice.append(RFT.Quadrupole(Lquad, self.energy, k1))
+        quad = RFT.Quadrupole(Lquad, -self.energy, k1)
+        quad.set_tt_nsteps(100)
+        self.lattice.append(quad)
+
     def add_drift(self, Ldrift):
         Drift = RFT.Drift(Ldrift)
         self.lattice.append(Drift)
-        Drift.set_tt_nsteps(50) 
+        Drift.set_tt_nsteps(100) 
 
     def set_aperture(self):
         for element in self.lattice:
@@ -81,23 +86,77 @@ class RF_track_utils():
 
         return self.phsp
     
-    # def track_bunch(self, saveparams=True):
-    #     B1 = self.lattice.track(self.bunch)
-        
-       
-        
-    
+
+    def track_bunch_QR(self,N_particles, saveparams = True, E_deviation=0.5, sigma_x=1, sigma_xp=1, sigma_y=1, sigma_yp=1):
+        N_particles = int(N_particles)
+        mass = RFT.electronmass
+        charge = -1
+        # 2D Gaussian parameters
+  
+        sobol = qmc.Sobol(d=4, scramble=True)
+        u = sobol.random(N_particles)  
+        z = norm.ppf(u) # Transform to standard normal
+        #separate into x and y components
+        x = z[:, 0] * sigma_x
+        xp = z[:, 1] * sigma_xp
+        y = z[:, 2] * sigma_y
+        yp = z[:, 3] * sigma_yp
+
+        P = self.energy * (1 + np.random.normal(0, E_deviation/100, N_particles))  # 200 MeV ± 0.5%
+        T = np.zeros(N_particles)
+        matrix = np.column_stack((x, xp, y, yp, T, P)) #transpose to match Bunch6d format
+
+        bunch = RFT.Bunch6d(mass, N_particles, charge, matrix )
+        self.trackedBunch = self.lattice.track(bunch)
+        self.transport_table = self.lattice.get_transport_table(
+        '%S %beta_x %beta_y %alpha_x %alpha_y %sigma_x %sigma_y %sigma_px %sigma_py')
+        self.phsp = self.trackedBunch.get_phase_space('%x %xp %y %yp %E %z')
+        if saveparams:
+            k1s_str = '_'.join(str(k) for k in self.k1s)  # Convert each element to string and join with '_'
+            np.savetxt(f"RFT_k1s={k1s_str}_N={int(N_particles )}.txt", self.phsp)
+
+        return self.phsp  
+
+    def track_bunch_QR_twiss(self,N_particles, saveparams = True, beta_x=2, beta_y=2, alpha_x=0, alpha_y=0):   
+        N_particles = int(N_particles)
+        mass = RFT.electronmass
+
+        Q = -1 # e+ 
+        # 2D Gaussian parameters
+        Twiss = RFT.Bunch6d_twiss()
+        Twiss.beta_x = beta_x       # m
+        Twiss.beta_y = beta_y    # m
+        Twiss.alpha_x = alpha_x
+        Twiss.alpha_y = alpha_y
+        Twiss.emitt_x = 1     # mm.mrad normalised emittance
+        Twiss.emitt_y = 1     # mm.mrad
+        Twiss.mean_xp = 0.0
+        Twiss.mean_yp = 0.0
+        bunch = RFT.Bunch6d_QR(mass, 0.0, Q, self.energy, Twiss, N_particles) #bunch charge can be 0 if dont need collective effects
+
+        self.trackedBunch = self.lattice.track(bunch)
+        self.transport_table = self.lattice.get_transport_table(
+        '%S %beta_x %beta_y %alpha_x %alpha_y %sigma_x %sigma_y %sigma_px %sigma_py')
+        self.phsp = self.trackedBunch.get_phase_space('%x %xp %y %yp %E %z')
+        if saveparams:
+            k1s_str = '_'.join(str(k) for k in self.k1s)  # Convert each element to string and join with '_'
+            np.savetxt(f"RFT_k1s={k1s_str}_N={int(N_particles )}.txt", self.phsp)
+
+        return self.phsp
+
+
     def plot_phsp(self):
         T = self.transport_table
         M = self.phsp
-        # plt.figure(1)
-        # plt.plot(T[:,0], T[:,1], 'b-', label=r'$\beta_x$')
-        # plt.plot(T[:,0], T[:,2], 'r-', label=r'$\beta_y$')
-        # plt.plot(T[:,0], T[:,3], 'g-', label=r'$\alpha_x$')
-        # plt.plot(T[:,0], T[:,4], 'b-', label=r'$\alpha_y$')
-        # plt.legend()
-        # plt.xlabel('S [m]')
-        # plt.ylabel(r'$\beta$ [m]')
+        plt.figure(1)
+        plt.plot(T[:,0], T[:,1], 'b-', label=r'$\beta_x$')
+        plt.plot(T[:,0], T[:,2], 'r-', label=r'$\beta_y$')
+        plt.plot(T[:,0], T[:,3], 'g-', label=r'$\alpha_x$')
+        plt.plot(T[:,0], T[:,4], 'o-', label=r'$\alpha_y$')
+        plt.legend()
+        plt.xlabel('S [m]')
+        plt.ylabel(r'$\beta$ [m]')
+        plt.show()
 
         def scatter_hist(x, y, ax, ax_histx, ax_histy):
 
@@ -146,5 +205,19 @@ class RF_track_utils():
 
         k1s_str = '_'.join(str(k) for k in self.k1s)
         fig.savefig(f"Output_figs/RFT_k1s={k1s_str}.png")
+
+        #plot phase space x-xp and y-yp
+        fig2, axs2 = plt.subplots(1,2, figsize=(10,5))
+        axs2[0].scatter( M[:,0], M[:,1], s=5)
+        axs2[0].set_xlabel('X (mm)')
+        axs2[0].set_ylabel('Xp (mrad)')
+        axs2[0].set_title('Phase Space X-Xp')
+        axs2[1].scatter( M[:,2], M[:,3], s=5)
+        axs2[1].set_xlabel('Y (mm)')
+        axs2[1].set_ylabel('Yp (mrad)')
+        axs2[1].set_title('Phase Space Y-Yp')   
+        fig2.savefig(f"Output_figs/RFT_PhaseSpace_k1s={k1s_str}.png")
+        
+
 
 

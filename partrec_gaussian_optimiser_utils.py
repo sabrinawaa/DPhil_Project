@@ -15,7 +15,7 @@ from astropy.io import ascii
 from topasToDose import getDosemap
 from uniformity_fit import *
 # class of methods used for generating topas scripts for scattering foils
-
+# positions are all negative as e- beam by default goes in the negative directio
 
 class partrec_gaussian_optimiser_utils():
     # set filepaths and number of threads available
@@ -32,12 +32,24 @@ class partrec_gaussian_optimiser_utils():
         file = open(file_directory + input_filename, "w")
         # set number of threads depending on computing power available
         file.write("i:Ts/NumberOfThreads=" + no_of_threads + "\n")
+        # file.write('b:Ts/QuitIfManyHistoriesSeemAnomalous = "False"\n')  #REMOVE LATER
         # define arbitrarily large world
         file.write("d:Ge/World/HLX = 5.0 m\n")
         file.write("d:Ge/World/HLY = 5.0 m\n")
         file.write("d:Ge/World/HLZ = 5.0 m\n")
         # set world as vacuum for simplicity
         file.write('s:Ge/World/Material = "Vacuum"\n \n')
+
+        file.write('sv:Ma/Steel316/Components = 9 "Iron" "Chromium" "Nickel" "Molybdenum" "Manganese" "Silicon" "Phosphorus" "Carbon" "Sulfur" \n')
+        file.write('uv:Ma/Steel316/Fractions = 9 0.644 0.18 0.12 0.025 0.02 0.01 0.00045 0.0003 0.0003\n')
+        file.write('d:Ma/Steel316/Density = 8.03 g/cm3\n')
+        file.write('s:Ma/Steel316/DefaultColor = "silver"\n')
+
+        file.write('sv:Ma/Peek/Components = 3 "Carbon" "Hydrogen" "Oxygen"\n')
+        file.write('uv:Ma/Peek/Fractions = 3 0.76 0.08 0.16\n')
+        file.write('d:Ma/Peek/Density = 1.31 g/cm3\n')
+        file.write('s:Ma/Peek/DefaultColor = "lightblue"\n')
+
         self.home_directory = home_directory
         self.file_directory = file_directory
         # set filename and file object as class attributes to retrieve later
@@ -143,18 +155,40 @@ class partrec_gaussian_optimiser_utils():
         # set position of scatterer so that the edge is on the origin
         file.write("d:Ge/S1/TransZ = -" +
                    str(position+thickness / 2) + " mm\n")
-
-    # position here refers to downstream face of scatterer (don't ask me why)
-    # convolution factor = 1 for standard Gaussian scatterer
-    def add_gaussian_scatterer(self, max_thickness, radius, convolution_factor, N_slices, material, position, show_shape=False):
+        
+    def add_cylinder(self, name, thickness, radius,  material, position):
         file = self.file
+        file.write('s:Ge/'+name+'/Type = "TsCylinder"\n')
+        # defined from world centre
+        file.write('s:Ge/'+name+'/Parent="World"\n')
+        # set material based on input argument
+        file.write("s:Ge/"+name+"/Material=" + '"' + material + '"' + "\n")
+
+        # set radius of scatterer (make sure it is larger than beam radius)
+        file.write("d:Ge/"+name+"/Rmax =  "+ str(radius)+ "  mm\n")
+        # solid scatterer - inner radius must be set to 0
+        file.write("d:Ge/"+name+"/Rmin= 0 mm\n")
+        # define thickness of scatterer using previously define half length
+        # topas works with half lengths rather than full lengths
+        file.write("d:Ge/"+name+"/HL = " + str(thickness / 2) + " mm\n")
+        # set position of scatterer so that the edge is on the origin
+        file.write("d:Ge/"+name+"/TransZ = -" +
+                   str(position+thickness / 2) + " mm\n")
+
+    def add_gaussian_scatterer(self, max_thickness, radius, convolution_factor, N_slices, material, position, show_shape=False,kapton=False):
+        # position here refers to downstream face of scatterer (don't ask me why)
+        # downstream face is base of scatterer 
+        # convolution factor = 1 for standard Gaussian scatterer
+        # slice 1 is largest radius which is base of scatterer
+        file = self.file
+ 
 
         s2_sigma = radius/2
         # define spread of gaussian shape
         # and precision (number of slices in shape) with step argument
         # x = np.arange(-half_width, half_width, step=1)
         step = radius / (N_slices)
-        x = np.arange(-(radius+step), 0, step=step)
+        x = np.arange(-(radius+step), 0, step=step) #so that y is increasing instead of decreasing
         # construct gaussian profile from method argument sigma
         # convolution factor "warps" shape
         y = norm.pdf(x, 0, s2_sigma * convolution_factor)
@@ -167,6 +201,7 @@ class partrec_gaussian_optimiser_utils():
             plt.plot(np.append(x, -np.flip(x, 0)), np.append(y, np.flip(y)))
             plt.xlabel('r[mm]')
             plt.ylabel('h[mm]')
+            plt.show()
         # scale height and normalise base to 0
         # according to method argument max_height
 
@@ -207,26 +242,55 @@ class partrec_gaussian_optimiser_utils():
                 + str(position - y[i - 1] - L / 2)
                 + " mm\n"
             )
+            # if kapton == i:
+            #         file.write('s:Ge/mount/Parent="S2Box"\n')
+            #         file.write('s:Ge/mount/Type= "TsCylinder"\n')
+            #         file.write('d:Ge/mount/Rmin='+str(abs(x[i])) + " mm\n")
+            #         file.write('d:Ge/mount/Rmax=50 mm\n')
+            #         file.write(
+            #             "d:Ge/mount/TransZ = "
+            #             + str(0 + y[i - 1] + L / 2)
+            #             + " mm\n"
+            #         )
+            #         file.write('s:Ge/mount/Material="Kapton"\n')
+            #         file.write('d:Ge/mount/HL = 50 um\n')
             # increment to begin next slice until shape completion
             i = i + 1
 
-    def add_collimator(self, Rmax, Rmin, length, position):
+    def add_collimator(self, Rmax, R_W, Rmin, length, position):
         file = self.file
         # define collimator as cylinder
+        file.write('s:Ge/Collimator_outer/Type = "TsCylinder"\n')
+        # set parent to world
+        file.write('s:Ge/Collimator_outer/Parent = "World"\n')
+        # set material - vacuum for simplicity
+        file.write('s:Ge/Collimator_outer/Material="Steel316"\n')
+        # set radius of collimator
+        file.write("d:Ge/Collimator_outer/Rmax = " + str(Rmax) + " mm\n")
+        # set inner radius to 0 - solid collimator to include the volume, but overwritten by daughter
+        file.write("d:Ge/Collimator_outer/Rmin = " + str(Rmin) + " mm\n")
+        # set half length of collimator
+        # topas works with half lengths rather than full lengths
+        file.write("d:Ge/Collimator_outer/HL = " + str(length/2)+ " mm   \n")  # set arbitrary length
+        # set position of collimator at appropriate distance from beam source
+        file.write("d:Ge/Collimator_outer/TransZ = -" + str(position) + " mm\n")
+
         file.write('s:Ge/Collimator/Type = "TsCylinder"\n')
         # set parent to world
-        file.write('s:Ge/Collimator/Parent = "World"\n')
+        file.write('s:Ge/Collimator/Parent = "Collimator_outer"\n')
         # set material - vacuum for simplicity
         file.write('s:Ge/Collimator/Material="G4_W"\n')
         # set radius of collimator
-        file.write("d:Ge/Collimator/Rmax = " + str(Rmax) + " mm\n")
+        file.write("d:Ge/Collimator/Rmax = " + str(R_W) + " mm\n")
         # set inner radius to 0 - solid collimator
         file.write("d:Ge/Collimator/Rmin = " + str(Rmin) + " mm\n")
         # set half length of collimator
         # topas works with half lengths rather than full lengths
         file.write("d:Ge/Collimator/HL = " + str(length/2)+ " mm   \n")  # set arbitrary length
         # set position of collimator at appropriate distance from beam source
-        file.write("d:Ge/Collimator/TransZ = -" + str(position) + " mm\n")
+
+
+        
        
 
     def add_patient(self, position):
@@ -277,15 +341,15 @@ class partrec_gaussian_optimiser_utils():
         file.write("d:Ge/Tank/TransZ=-" +
                    str(position+depth/2) + " mm\n") #transZ is position of centre of tank
         
-    def add_tank_bins(self, position, depth, x_bins, y_bins, z_bins, output_filename):
+    def add_tank_bins(self, position, depth, x_bins, y_bins, z_bins, output_filename, width=300):
         file = self.file
         file.write('s:Ge/Tank/Type="TsBox"\n')
         file.write('s:Ge/Tank/Parent = "World"\n')
         # set arbitrary material - vacuum for simplicity
         file.write('s:Ge/Tank/Material="G4_WATER"\n')
         # set arbitrarily large surface area of scorer
-        file.write("d:Ge/Tank/HLX = 0.15 m\n") #change back to 0.15!!!!!!
-        file.write("d:Ge/Tank/HLY = 0.15 m\n") #change back to 0.15!!!!!!
+        file.write("d:Ge/Tank/HLX =" +  str(width/2000) +" m\n") #half width here in m
+        file.write("d:Ge/Tank/HLY = " + str(width/2000) +" m\n") 
         file.write("d:Ge/Tank/HLZ = " + str(depth / 2) + " mm\n")
         file.write("d:Ge/Tank/TransZ=-" +
                    str(position+depth/2) + " mm\n")

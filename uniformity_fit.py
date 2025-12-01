@@ -83,9 +83,9 @@ def fitDoseMap (n_particles, dose_depth,output_filename, zoom_factor=1, plot=Tru
     lower_index =  int( (len(x) -len(x) * zoom_factor) /2 )# Lower bound for the dose values
     upper_index = int( len(x)- lower_index) # Upper bound for the dose values
     x,y,doseMap = x[lower_index:upper_index, lower_index:upper_index],y[lower_index:upper_index, lower_index:upper_index], doseMap[lower_index:upper_index, lower_index:upper_index]  #only the central 60% of the beam
+    #print("average dose",np.mean(doseMap))
     
-    
-    p0=[0.2, np.max(x)//2, np.max(y)//2, 60, 60, 6]
+    p0=[np.max(doseMap), np.mean(x), np.mean(y), np.std(x), np.std(y), 6]
     #curvefit 2d histogram to supergaussian
     # Perform the optimization
     result = minimize(MSE, p0, args=(x, y, doseMap), method='L-BFGS-B')

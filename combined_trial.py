@@ -8,11 +8,13 @@ from uniformity_fit import *
 from partrec_foil_plotting import partrec_foil_plotting
 from RF_track_utils import *
 from Optimisation_funcs import *
-
+import time
+import sys
 # parameters
+start_time = time.time()
 quad_length = 0.3
 drift_l = 0.2
-# k1_1, k1_2, k1_3, k1_4 =optimise_k1s(10000, 200, stepsize=20,N_trials=10, sGoal=40) #1000 particles, 200 energy
+# k1_1, k1_2, k1_3, k1_4 =optimise_k1s(10000, 200, N_trials=10, sGoal=40) #10000 particles, 200 energy
 k1_1, k1_2, k1_3, k1_4 = 8.23470106,  -5.77519295,  12.30291714, -70.89257372 #<75
 
 # k1_1, k1_2, k1_3, k1_4 =   3.44117706,  -6.08325848,  11.15552757, -56.11720984 #
@@ -21,9 +23,9 @@ dir = '/Users/sabrinawang/Desktop/DPhil_Project/'
 
 output_filename = "quad_scatterer"
 RFT_name = output_filename #names of phsp and header files from RF Track output
-n_particles = 1e5#1e5
+n_particles = 3e6#1e5
 
-profile = "dose" # "dose" or "intensity"
+profile = "intensity" # "dose" or "intensity"
 system = "quad-scatterer" # "dual-scatterer" or "quad-scatterer"
 
 # end of params
@@ -35,9 +37,12 @@ if system == "dual-scatterer":
 quadlattice = RF_track_utils(200, [k1_1, k1_2, k1_3, k1_4])
 # quadlattice.add_drift(2.5)  # Add drift after quadrupoles to reach water phantom
 R = quadlattice.track_bunch(n_particles, saveparams=True, E_deviation=0.5, sigma_x=1, sigma_xp=1, sigma_y=1, sigma_yp=1)
-# quadlattice.plot_phsp()
+quadlattice.plot_phsp()
 
-# R = np.loadtxt(f"RFT_k1s={k1_1}_{k1_2}_{k1_3}_{k1_4}_N={int(n_particles)}.txt") 
+
+
+
+# R = np.loadtxt(f"RFT_k1s={k1_1}_{k1_2}_{k1_3}_{k1_4}_N={int(n_particles)}.txt") #retreive previously saved parameters
 # s2_depth, s2_radius = optimise_s2( R, N_trials=10) #optimise s2 params to get flat beam at water phantom
 
 s1_depths = [0.95] if system == "dual-scatterer" else [0]
@@ -78,13 +83,14 @@ for s1_depth in s1_depths:
                 
                 
                 setup.run_topas(view_setup=False)
+                print('time for RF-Track + TOPAS :', time.time()-start_time)
 
                 if profile == "intensity":
                         # initialise plotting class
                     plotter = partrec_foil_plotting('patient_beam.phsp' ) #filename defined inside partrec_gaussian_optimiser_utils
                     # plot transverse distributions and energy spectrum at patient
-                    plotter.show_transverse_beam(output_filename, s1_depth, s2_depth, s2_radius,particle= 'e',fov= 150, col=75)
-                    plotter.show_transverse_beam(output_filename, s1_depth, s2_depth, s2_radius,particle= 'y',fov= 150, col=75)
+                    plotter.show_transverse_beam(output_filename, s1_depth, s2_depth, s2_radius,particle= 'e',fov= 200, col=75)
+                    plotter.show_transverse_beam(output_filename, s1_depth, s2_depth, s2_radius,particle= 'y',fov=200, col=75)
 
                 elif profile == "dose":
 
