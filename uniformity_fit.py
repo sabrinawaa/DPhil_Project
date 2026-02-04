@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
+from scipy.optimize import curve_fit
 from topasToDose import getDosemap
 
 #characterise uniformity
@@ -103,6 +104,99 @@ def fitDoseMap (n_particles, dose_depth,output_filename, zoom_factor=1, plot=Tru
     
 
 
+#80% of central beam
+def mask80(x):
+    cdf = np.cumsum(x, dtype=float)
+    cdf /= cdf[-1] # Normalize CDF to 1
+    mask = (cdf >= 0.1) & (cdf <= 0.9) # Mask for central 80%
+    return x[mask]
+
+
+
+def moving_average(x):
+    n = int(len(x)/10)
+    """Simple moving average with window size n."""
+    return np.convolve(x, np.ones(n)/n, mode='same')
+
+def sum_2gaussians(x, A, x0, sigma_x):
+    return A * (np.exp(-( (x-x0)**2 /(2*sigma_x**2) )) + np.exp(-( (x+x0)**2 /(2*sigma_x**2) )) )
+            
+
+def flatness(x):
+    
+    x = moving_average(x) #smoothing
+    x = mask80(x)
+    return (max(x)-min(x))/ (max(x)+min(x))
+
+def plot_phsp(T,M, n_bins=50,fov=200):
+     
+    def scatter_hist(x, y, ax, ax_histx, ax_histy):
+        
+        ax_histx.tick_params(axis="x", labelbottom=True)
+        ax_histy.tick_params(axis="y", labelleft=True)
+
+        # the scatter plot:
+        ax.scatter(x, y,s=1,alpha=0.5)
+        ax.set_xlim(-fov,fov)
+        ax.set_ylim(-fov,fov)
+
+        ax.set_xlabel('X (mm)')  # Set x-axis label for scatter plot
+        ax.set_ylabel('Y (mm)')
+
+        slice_width = 1
+        phsp_xslice = M[(M[:,2] < slice_width)]
+        phsp_xslice = phsp_xslice[(phsp_xslice[:,2] > -slice_width)]
+        
+        phsp_yslice = M[(M[:,0] < slice_width)]
+        phsp_yslice = phsp_yslice[(phsp_yslice[:,0] > -slice_width)]
+
+        
+        hist_x, bin_edges_x = np.histogram(phsp_xslice[:,0], bins=n_bins, range=[-fov, fov])
+        bin_centers_x = (bin_edges_x[:-1] + bin_edges_x[1:]) / 2
+
+
+        hist_y, bin_edges_y = np.histogram(phsp_yslice[:,2], bins=n_bins, range=[-fov, fov])
+        bin_centers_y = (bin_edges_y[:-1] + bin_edges_y[1:]) / 2
+
+        #fits
+        p0=[np.max(hist_x),  np.mean(phsp_xslice[:,0]), np.std(phsp_xslice[:,0]), 4]
+        params_x, _ = curve_fit(supergaussian1D, bin_centers_x, hist_x, p0=p0)
+
+        p00 = [np.max(hist_x),  10, np.std(phsp_xslice[:,0])]
+        params_xx, _ = curve_fit(sum_2gaussians, bin_centers_x, hist_x, p0=p00)
+
+        params_y, _ = curve_fit(supergaussian1D, bin_centers_y, hist_y, p0=p0)
+        params_yy, _ = curve_fit(sum_2gaussians, bin_centers_y, hist_y, p0=p00)
+        xy_fit_curve = np.linspace(-fov, fov, 500)
+       
+        sig_x,sig_y, P_x, P_y = params_x[2], params_y[2], params_x[3], params_y[3]
+        r90_x, r90_y = r90(sig_x, P_x), r90(sig_y, P_y)
+    
+        # Plot SuperGaussian fits
+
+        ax_histx.hist(phsp_xslice[:,0], bins=n_bins, range=[-fov, fov], color="b",alpha=0.6,label= ' X-Intensity')
+        ax_histx.plot(xy_fit_curve, supergaussian1D(xy_fit_curve, *params_x), 'r-', label=f"SuperGaussian Fit (P={params_x[3]:.2f},r90={r90_x:.2f})")
+        ax_histx.plot(xy_fit_curve, sum_2gaussians(xy_fit_curve, *params_xx), 'g-', label=f"2-Gaussian Fit (x0/sigma={params_xx[1]/params_xx[2]:.2f})")
+        ax_histx.plot(bin_centers_x, moving_average(hist_x), 'k-', label=f'Smoothed (F={flatness(hist_x):.3f})')
+
+        ax_histx.legend()
+
+
+        
+
+        ax_histy.hist(phsp_yslice[:,2], bins=n_bins, range=[-fov, fov], color="b",alpha=0.6,label= ' Y-Intensity',orientation="horizontal")
+        ax_histy.plot(supergaussian1D(xy_fit_curve, *params_y), xy_fit_curve,  'r-', label=f"SuperGaussian Fit (P={params_y[3]:.2f},r90={r90_y:.2f})")
+        ax_histy.plot( sum_2gaussians(xy_fit_curve, *params_yy), xy_fit_curve, 'g-', label=f"2-Gaussian Fit (x0/sigma={params_yy[1]/params_yy[2]:.2f})")
+        ax_histy.plot(moving_average(hist_y),bin_centers_y, 'k-', label=f'Smoothed (F={flatness(hist_y):.3f})')
+        ax_histy.legend()
+
+    fig, axs = plt.subplot_mosaic([['histx', '.'],
+                                ['scatter', 'histy']],
+                                figsize=(10, 8),
+                                width_ratios=(4, 1), height_ratios=(1, 4),
+                                layout='constrained')
+    scatter_hist(M[:,0], M[:,2], axs['scatter'], axs['histx'], axs['histy'])
+    plt.show()
 
 
     
