@@ -1,7 +1,8 @@
 import numpy as np
-from scipy.optimize import fminbound
+from scipy.optimize import fminbound, curve_fit
 from scipy.stats import kurtosis
 import matplotlib.pyplot as plt
+from sklearn.neighbors import NearestNeighbors
 
 # Global cache
 PRC_UniformDisk = None
@@ -29,8 +30,8 @@ def merit_beam_Uniform(B1, Rmin, Rmax, transmission=0.998):
             fminbound(lambda x: (A(x) - p)**2, -1, 1)
             for p in PRC
         ])
-        plt.plot(PRC_UniformDisk)
-        plt.show()
+        # plt.plot(PRC_UniformDisk)
+        # plt.show()
 
     # ============================================================
     #             Merit function — PART 1
@@ -104,7 +105,37 @@ def merit_beam_Uniform(B1, Rmin, Rmax, transmission=0.998):
     # Transmission term
     trans_ratio = B1.get_ngood() / B1.size()
     M_transmission = 1e8 * min(trans_ratio - transmission, 0)**2
-    print(M_uniformity, M_kurtosis, M_size,M_transmission,R)
+    # print(M_uniformity, M_kurtosis, M_size,M_transmission,R)
 
     # Final merit value
     return M_uniformity + M_kurtosis + M_size + M_transmission
+
+
+def mask2d(x,y):
+    r = np.sqrt(x**2 + y**2)
+    threshold = np.percentile(r, 60)
+    mask = r <= threshold
+    return x[mask],y[mask]
+
+def nearest_neighbor_test(x,y):
+    points = np.array([x,y]).T
+    nbrs = NearestNeighbors(n_neighbors=2).fit(points)
+    distances, _ = nbrs.kneighbors(points)
+    nn_distances = distances[:, 1]  # skip self-distance
+
+    mean_dist = nn_distances.mean()
+    std_dist = nn_distances.std()
+    print(nn_distances)
+    cv = std_dist / mean_dist  
+    # coefficient of variation = 0.52 is poisson uniform, <0.52 is too uniform, >0.52 clustering
+
+    return mean_dist, std_dist, cv
+
+def sum_2gaussians(x, A, x0, sigma_x):
+    return A * (np.exp(-( (x-x0)**2 /(2*sigma_x**2) )) + np.exp(-( (x+x0)**2 /(2*sigma_x**2) )) )
+
+def loss_2gauss(hist_x, bin_centers_x, hist_y, bin_centers_y):
+    p0 = [np.max(hist_x),  10, np.std(bin_centers_x)]
+    params_x, _ = curve_fit(sum_2gaussians, bin_centers_x, hist_x, p0=p0)
+    params_y, _ = curve_fit(sum_2gaussians, bin_centers_y, hist_y, p0=p0) 
+    loss = abs(params_x[1]/params_x[2] -1.1)  + abs(params_y[1]/params_y[2] -1.1) #x0/sigma  

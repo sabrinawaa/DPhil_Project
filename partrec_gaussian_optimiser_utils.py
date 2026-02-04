@@ -23,6 +23,7 @@ class partrec_gaussian_optimiser_utils():
     # output file is 'patient_beam'
     def __init__(
         self,
+        world_material="Vacuum",
         home_directory="/Applications/",
         no_of_threads="6",
         input_filename="topas_main.txt",
@@ -38,7 +39,7 @@ class partrec_gaussian_optimiser_utils():
         file.write("d:Ge/World/HLY = 5.0 m\n")
         file.write("d:Ge/World/HLZ = 5.0 m\n")
         # set world as vacuum for simplicity
-        file.write('s:Ge/World/Material = "Vacuum"\n \n')
+        file.write('s:Ge/World/Material = "' + world_material + '"\n \n')
 
         file.write('sv:Ma/Steel316/Components = 9 "Iron" "Chromium" "Nickel" "Molybdenum" "Manganese" "Silicon" "Phosphorus" "Carbon" "Sulfur" \n')
         file.write('uv:Ma/Steel316/Fractions = 9 0.644 0.18 0.12 0.025 0.02 0.01 0.00045 0.0003 0.0003\n')
@@ -49,6 +50,14 @@ class partrec_gaussian_optimiser_utils():
         file.write('uv:Ma/Peek/Fractions = 3 0.76 0.08 0.16\n')
         file.write('d:Ma/Peek/Density = 1.31 g/cm3\n')
         file.write('s:Ma/Peek/DefaultColor = "lightblue"\n')
+
+        file.write('sv:Ma/PMMA/Components = 3 "Carbon" "Hydrogen" "Oxygen"\n')
+        file.write('uv:Ma/PMMA/Fractions = 3  0.599848  0.080538  0.319614\n')
+        file.write('d:Ma/PMMA/Density = 1.190 g/cm3\n')
+        file.write('d:Ma/PMMA/MeanExcitationEnergy=85.7 eV\n')
+        file.write('s:Ma/PMMA/DefaultColor = "lightblue"\n')
+        file.write('dv:Ma/PMMA/RefractiveIndex/Energies = 2 2.0 3.35 eV\n')
+        file.write('uv:Ma/PMMA/RefractiveIndex/Values = 2 1.49 1.49\n')
 
         self.home_directory = home_directory
         self.file_directory = file_directory
@@ -146,7 +155,7 @@ class partrec_gaussian_optimiser_utils():
         file.write("s:Ge/S1/Material=" + '"' + material + '"' + "\n")
 
         # set radius of scatterer (make sure it is larger than beam radius)
-        file.write("d:Ge/S1/Rmax =  100  mm\n")
+        file.write("d:Ge/S1/Rmax =  200  mm\n") #change back to 100!!
         # solid scatterer - inner radius must be set to 0
         file.write("d:Ge/S1/Rmin= 0 mm\n")
         # define thickness of scatterer using previously define half length
@@ -156,7 +165,7 @@ class partrec_gaussian_optimiser_utils():
         file.write("d:Ge/S1/TransZ = -" +
                    str(position+thickness / 2) + " mm\n")
         
-    def add_cylinder(self, name, thickness, radius,  material, position):
+    def add_cylinder(self, name, thickness, in_radius, out_radius, material, position,):
         file = self.file
         file.write('s:Ge/'+name+'/Type = "TsCylinder"\n')
         # defined from world centre
@@ -165,9 +174,9 @@ class partrec_gaussian_optimiser_utils():
         file.write("s:Ge/"+name+"/Material=" + '"' + material + '"' + "\n")
 
         # set radius of scatterer (make sure it is larger than beam radius)
-        file.write("d:Ge/"+name+"/Rmax =  "+ str(radius)+ "  mm\n")
+        file.write("d:Ge/"+name+"/Rmax =  "+ str(out_radius)+ "  mm\n")
         # solid scatterer - inner radius must be set to 0
-        file.write("d:Ge/"+name+"/Rmin= 0 mm\n")
+        file.write("d:Ge/"+name+"/Rmin=  "+ str(in_radius)+ " mm\n")
         # define thickness of scatterer using previously define half length
         # topas works with half lengths rather than full lengths
         file.write("d:Ge/"+name+"/HL = " + str(thickness / 2) + " mm\n")
@@ -302,10 +311,10 @@ class partrec_gaussian_optimiser_utils():
         file.write('s:Ge/ScorerSurface/Material="G4_WATER"\n')
 
         # set arbitrarily large surface area of scorer
-        file.write("d:Ge/ScorerSurface/HLX = 1 m\n")
-        file.write("d:Ge/ScorerSurface/HLY = 1 m\n")
+        file.write("d:Ge/ScorerSurface/HLX = 1 m\n") 
+        file.write("d:Ge/ScorerSurface/HLY = 1 m\n") 
         # set small thickness for precision
-        file.write("d:Ge/ScorerSurface/HLZ = 0.01 mm\n")
+        file.write("d:Ge/ScorerSurface/HLZ = 0.01 mm\n")    
         # set at appropriate distance for consistency between variables
         file.write("d:Ge/ScorerSurface/TransZ = -" +
                    str(position) + " mm\n")

@@ -11,22 +11,34 @@ class RF_track_utils():
     # output file is 'patient_beam'
     def __init__(
         self,
-        energy,
-        k1s,
+        energy
         
     ):
-        #set constants
+     
+        self.energy = float(energy)
+        
+        RFT.cvar.number_of_threads = 8
+        self.lattice = RFT.Lattice()
+       
+        
+    
+        
+    # define Gaussian beam in terms of phase space parameters
+    # sigma, sigmap, E in mm, mrad, MeV respectively
+
+
+#rewrite into class structure
+# '''
+
+    def get_quad_lattice(self, k1s):
         quad_length = float(0.3)  # m
         drift_length = float(0.2)
         # aperture = float(0.019)    # m
         aperture = float(0.1)    # m
 
-        self.energy = float(energy)
         self.k1s = k1s
 
-        RFT.cvar.number_of_threads = 8
-        self.lattice = RFT.Lattice()
-        
+
         Drift = RFT.Drift(drift_length)
         Drift.set_aperture(aperture, aperture, 'circular')  # set aperture for drift PUT BACK!!!!!!!!!!!!!!!!!!!!
         for k1 in k1s:
@@ -37,14 +49,7 @@ class RF_track_utils():
         # Drift.set_tt_nsteps(100)  # set number of steps for transport table
         # quad.set_tt_nsteps(100)
 
-    
-        
-    # define Gaussian beam in terms of phase space parameters
-    # sigma, sigmap, E in mm, mrad, MeV respectively
 
-
-#rewrite into class structure
-# '''
     def gaussian(x,A,mu,sig):
         return A * np.exp(- (x-mu)**2 /(2*sig**2))
 

@@ -34,7 +34,8 @@ if system == "dual-scatterer":
     k1_1, k1_2, k1_3, k1_4 = 0, 0, 0, 0
 
 # R = four_quads(quad_length, k1_1, k1_2, k1_3, k1_4, drift_l, n_particles, 200,saveparams=True, plot=True)
-quadlattice = RF_track_utils(200, [k1_1, k1_2, k1_3, k1_4])
+quadlattice = RF_track_utils(200)
+quadlattice.get_quad_lattice([k1_1, k1_2, k1_3, k1_4])
 # quadlattice.add_drift(2.5)  # Add drift after quadrupoles to reach water phantom
 R = quadlattice.track_bunch(n_particles, saveparams=True, E_deviation=0.5, sigma_x=1, sigma_xp=1, sigma_y=1, sigma_yp=1)
 quadlattice.plot_phsp()
@@ -89,8 +90,8 @@ for s1_depth in s1_depths:
                         # initialise plotting class
                     plotter = partrec_foil_plotting('patient_beam.phsp' ) #filename defined inside partrec_gaussian_optimiser_utils
                     # plot transverse distributions and energy spectrum at patient
-                    plotter.show_transverse_beam(output_filename, s1_depth, s2_depth, s2_radius,particle= 'e',fov= 200, col=75)
-                    plotter.show_transverse_beam(output_filename, s1_depth, s2_depth, s2_radius,particle= 'y',fov=200, col=75)
+                    plotter.show_transverse_beam(output_filename, s1_depth, s2_depth, s2_radius,particle= 'e',fov= 250, col=75)
+                    plotter.show_transverse_beam(output_filename, s1_depth, s2_depth, s2_radius,particle= 'y',fov=250, col=75)
 
                 elif profile == "dose":
 
