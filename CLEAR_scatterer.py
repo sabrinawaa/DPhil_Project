@@ -37,12 +37,12 @@ print(CLEAR_lattice.get_length())
 
 Twiss = RF_Track.Bunch6d_twiss()
 
-Twiss.beta_x = 38.6        # m
-Twiss.beta_y = 10.5      # m
-Twiss.alpha_x = -1.49 
-Twiss.alpha_y = 0.476
-Twiss.emitt_x = 2.06     # mm.mrad normalised emittance
-Twiss.emitt_y = 4.8     # mm.mrad
+Twiss.beta_x = 17.7        # m
+Twiss.beta_y = 13.9     # m
+Twiss.alpha_x = -1.14 
+Twiss.alpha_y = 0.359
+Twiss.emitt_x = 4.62     # mm.mrad normalised emittance
+Twiss.emitt_y = 3.86     # mm.mrad
 # Twiss.sigma_t = 10 * RF_Track.ps       # mm/c   or 37 * RF_Track.ps
 # Twiss.sigma_pt = 10     # permille
 Twiss.mean_xp = 0.0
@@ -86,12 +86,12 @@ for i in range(len(s2_thickness)):
     slice_position = s1_pos + s1_depth + 532 + sum(s2_thickness[:i-1]) #532 is distance from s1 end to s2 start
     setup.add_cylinder(sname, s2_thickness[i-1],0, s2_radii[i-1], 'Peek', slice_position)
 
-# setup.add_cylinder('kapton_holder', 0.05, 50, 'Kapton' , slice_position + s2_thickness[i-1]/2+ 0.025)        
+# setup.add_cylinder('kapton_holder', 0.25, 0, 50, 'Kapton' , slice_position + s2_thickness[i-1]/2+ 0.025)        
 # setup.add_gaussian_scatterer(
 #     s2_depth, s2_radius, 0.9, 5, 'Peek', s1_pos+s1_depth+532)
-# setup.add_cylinder('kapton_window', 0.05, 50, 'Kapton' , slice_position+1250)
+# setup.add_cylinder('kapton_window', 0.25, 0, 50, 'Kapton' , slice_position+1250)
 
-setup.add_collimator(50,15,5,50, s1_pos+s1_depth+532+s2_depth+1585) #collimator 15 outer radius, 5mm inner radius, 50mm length, position 200mm from RF
+# setup.add_collimator(50,15,5,50, s1_pos+s1_depth+532+s2_depth+1585) #collimator 15 outer radius, 5mm inner radius, 50mm length, position 200mm from RF
                 
 
 if profile == "intensity":
@@ -99,9 +99,9 @@ if profile == "intensity":
     setup.add_patient(s1_pos+s1_depth+532+s2_depth+1585+50+389)
 elif profile == "dose":
 
-    setup.add_tank_bins(s1_pos+s1_depth+532+s2_depth+1585+50+389,dose_depth,150,150,1, output_filename, 30)
+    setup.add_tank_bins(s1_pos+s1_depth+532+s2_depth+1585+50+389,dose_depth,130,130,1, output_filename, 30)
 
-setup.run_topas(view_setup=False)
+# setup.run_topas(view_setup=False)
 
 if profile == "intensity":
         # initialise plotting class
@@ -113,6 +113,10 @@ if profile == "intensity":
 elif profile == "dose":
 
     #             # initialise plotting class
-    doseMap = getDosemap("DoseAtTank"+str(dose_depth)+ "_"+ output_filename+".csv",n_particles, dose_depth, output_filename, plot = True) 
-    fitDoseMap(n_particles, dose_depth,output_filename)
+    # doseMap = getDosemap("DoseAtTank"+str(dose_depth)+ "_"+ output_filename+".csv",n_particles, dose_depth, output_filename, plot = True) 
+    # fitDoseMap(n_particles, dose_depth,output_filename)
+
+    x,y, doseMap = getDosemap("DoseAtTank"+str(dose_depth)+ "_"+ output_filename+".csv",n_particles, dose_depth, output_filename, acChargenC=15, plot = False)
+    plot_dose(doseMap, x, y, strip_width=5, centred=True)
+    plt.savefig('Output_figs/' + output_filename + "_dose_map.png")
     #plots second graph

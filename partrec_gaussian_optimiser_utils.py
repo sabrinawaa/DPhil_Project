@@ -59,6 +59,21 @@ class partrec_gaussian_optimiser_utils():
         file.write('dv:Ma/PMMA/RefractiveIndex/Energies = 2 2.0 3.35 eV\n')
         file.write('uv:Ma/PMMA/RefractiveIndex/Values = 2 1.49 1.49\n')
 
+        file.write('sv:Ma/Anticorodal/Components = 9 "Aluminum" "Silicon" "Magnesium" "Manganese" "Iron" "Chromium" "Titanium" "Copper" "Zinc"\n')
+        file.write('uv:Ma/Anticorodal/Fractions = 9  0.9625  0.0100  0.0090  0.0070  0.0050  0.0025  0.0010  0.0010  0.0020\n')
+        file.write('d:Ma/Anticorodal/Density = 2.7 g/cm3\n')
+        file.write('d:Ma/Anticorodal/MeanExcitationEnergy = 166 eV\n')
+        file.write('s:Ma/Anticorodal/DefaultColor = "gray"\n')
+
+                # Kapton (polyimide) — repeat unit approx C22H10N2O5
+        file.write('sv:Ma/Kapton/Components = 4 "Hydrogen" "Carbon" "Nitrogen" "Oxygen"\n')
+        file.write('uv:Ma/Kapton/Fractions = 4  0.026362  0.691133  0.073270  0.209235\n')
+        file.write('d:Ma/Kapton/Density = 1.42 g/cm3\n')
+        file.write('d:Ma/Kapton/MeanExcitationEnergy = 79.6 eV\n')
+        file.write('s:Ma/Kapton/DefaultColor = "orange"\n')
+
+
+
         self.home_directory = home_directory
         self.file_directory = file_directory
         # set filename and file object as class attributes to retrieve later
@@ -180,6 +195,22 @@ class partrec_gaussian_optimiser_utils():
         # define thickness of scatterer using previously define half length
         # topas works with half lengths rather than full lengths
         file.write("d:Ge/"+name+"/HL = " + str(thickness / 2) + " mm\n")
+        # set position of scatterer so that the edge is on the origin
+        file.write("d:Ge/"+name+"/TransZ = -" +
+                   str(position+thickness / 2) + " mm\n")
+        
+    def add_box(self, name, thickness, x,y, material, position,):
+        file = self.file
+        file.write('s:Ge/'+name+'/Type = "TsBox"\n')
+        # defined from world centre
+        file.write('s:Ge/'+name+'/Parent="World"\n')
+        # set material based on input argument
+        file.write("s:Ge/"+name+"/Material=" + '"' + material + '"' + "\n")
+
+        file.write("d:Ge/"+name+"/HLX = "+ str(x/2)+ " mm\n")
+        file.write("d:Ge/"+name+"/HLY = "+ str(y/2)+ " mm\n")
+        file.write("d:Ge/"+name+"/HLZ = "+ str(thickness/2)+ " mm\n")
+        # topas works with half lengths rather than full lengths
         # set position of scatterer so that the edge is on the origin
         file.write("d:Ge/"+name+"/TransZ = -" +
                    str(position+thickness / 2) + " mm\n")

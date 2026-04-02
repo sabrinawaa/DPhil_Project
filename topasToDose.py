@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 # simParticles is the number of particles that the simulation was run with
 # acChargenC is the simulated total charge to create an appropriate scaling factor (effectively arbitrary, 10nC is reasonable for now)
 
-def getDosemap(filePath,simParticles,dose_depth,outputFileName,acChargenC=10, plot=False):
+def getDosemap(filePath,simParticles,dose_depth,outputFileName,acChargenC=66.7, plot=False):
     
     doseMap = BinnedResult(filePath)#  2D array where each element corresponds to the dose deposited in a specific bin. The dose information is stored in the numerical values of the array elements.
     rawDosemap=np.squeeze(doseMap.data['Sum'])
@@ -15,6 +15,7 @@ def getDosemap(filePath,simParticles,dose_depth,outputFileName,acChargenC=10, pl
     scalingFactor=acChargenC/trueChargenC #number of particles simulated vs number of particles in actual beam
     scaledDosemap=np.rot90(rawDosemap * scalingFactor)
 
+    print(acChargenC)
     if plot:
         # plt.figure(figsize=(8, 6))
         # plt.imshow(scaledDosemap, extent=[0, scaledDosemap.shape[1], 0, scaledDosemap.shape[0]],

@@ -7,7 +7,7 @@ from topasToDose import getDosemap
 from uniformity_fit import *
 from partrec_foil_plotting import partrec_foil_plotting
 from RF_track_utils import *
-from Optimisation_funcs import *
+# from Optimisation_funcs import *
 import time
 import sys
 # parameters

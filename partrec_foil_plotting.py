@@ -16,7 +16,7 @@ class partrec_foil_plotting:
         phase_space = pd.read_csv(
             path_to_phsp_file,
             names=["X", "Y", "Z", "PX", "PY", "E", "Weight", "PDG", "9", "10"],
-            delim_whitespace=True,
+            sep=r"\s+",
         )
         phase_space["X"] = phase_space["X"] * 10
         phase_space["Y"] = phase_space["Y"] * 10
@@ -48,9 +48,9 @@ class partrec_foil_plotting:
     # mean energy is calculated within collimator radius only
 
     def show_transverse_beam(self, out_filename, s1_depth, s2_depth, s2_r,
-                          particle='e', fov=50, col=50):
+                          particle='e', fov=50, col=50, n_bins = 50):
 
-        n_bins = 50
+        
 
         def get_slices(phsp, slice_width=3):
             phsp_xslice = phsp[(phsp["Y"].abs() < slice_width)]
@@ -97,7 +97,7 @@ class partrec_foil_plotting:
         ax_histy   = axs['histy']
 
         # ------------------- SCATTER PLOT --------------------
-        ax_scatter.scatter(phsp["X"], phsp["Y"], s=1, alpha=0.4)
+        ax_scatter.scatter(phsp["X"], phsp["Y"], s=0.8, alpha=0.4)
         ax_scatter.set_xlim(-fov, fov)
         ax_scatter.set_ylim(-fov, fov)
         ax_scatter.set_xlabel("X [mm]")
