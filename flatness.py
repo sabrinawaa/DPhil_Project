@@ -133,6 +133,9 @@ def nearest_neighbor_test(x,y):
 def sum_2gaussians(x, A, x0, sigma_x):
     return A * (np.exp(-( (x-x0)**2 /(2*sigma_x**2) )) + np.exp(-( (x+x0)**2 /(2*sigma_x**2) )) )
 
+def sum_2gaussians_skewed(x, A, x0, sigma_x, m, c,mu):
+    return A * (np.exp(-( (x-x0-mu)**2 /(2*sigma_x**2) )) + np.exp(-( (x+x0-mu)**2 /(2*sigma_x**2) )) ) + m * x + c
+
 def loss_2gauss(hist_x, bin_centers_x, hist_y, bin_centers_y):
     p0 = [np.max(hist_x),  10, np.std(bin_centers_x)]
     params_x, _ = curve_fit(sum_2gaussians, bin_centers_x, hist_x, p0=p0)

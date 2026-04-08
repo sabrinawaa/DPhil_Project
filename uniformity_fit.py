@@ -14,6 +14,9 @@ def supergaussian(x, y, A, x0, y0, sigma_x, sigma_y, P):
 def supergaussian1D(x, A, x0, sigma_x, P):
     return A * np.exp(-( (x-x0)**2 /(2*sigma_x**2) )**P)
 
+def supergaussian1D_skewed(x, A, x0, sigma_x, P,m,c):
+    return A * np.exp(-( (x-x0)**2 /(2*sigma_x**2) )**P) + m * x + c
+
 
 def MSE(params, x, y, dose_map):
     model = supergaussian(x, y, *params)
