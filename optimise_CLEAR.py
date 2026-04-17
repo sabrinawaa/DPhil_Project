@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 import RF_Track as rft
 from scipy.optimize import minimize, curve_fit
 from CLEAR_line import *
-from uniformity_fit import *
 from RF_track_utils import *
 from flatness import *
 from sklearn.neighbors import NearestNeighbors
