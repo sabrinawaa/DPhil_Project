@@ -126,4 +126,5 @@ for i in range(20):
           opt_loss = res.fun
           opt_params = res.x
 
-print(f'opt_loss={opt_loss:.3f}, params, ={opt_params}')
+with open("opt_results.txt", "a") as f:
+    f.write(f"opt_loss={opt_loss:.3f}, params={opt_params}\n")
