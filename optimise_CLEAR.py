@@ -108,7 +108,7 @@ def loss (last_triplet_k1s, lattice, B0):
     return loss
 
 B0_opt = RF_Track.Bunch6d_QR(mass, population, charge, P_ref, Twiss, 10000)     
-rng = np.random.default_rng(12345)
+rng = np.random.default_rng()
 opt_loss = np.inf
 for i in range(20):
   x0 = rng.integers(low=0, high=700, size=6) * [1,-1,1,1,-1,1]
