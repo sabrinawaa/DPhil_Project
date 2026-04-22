@@ -107,7 +107,7 @@ def loss (last_triplet_k1s, lattice, B0):
     print('loss:', loss,'k1s =', last_triplet_k1s)
     return loss
 
-B0_opt = RF_Track.Bunch6d_QR(mass, population, charge, P_ref, Twiss, 10000)     
+B0_opt = RF_Track.Bunch6d_QR(mass, population, charge, P_ref, Twiss, 100000)     
 rng = np.random.default_rng()
 opt_loss = np.inf
 for i in range(20):
@@ -127,4 +127,4 @@ for i in range(20):
           opt_params = res.x
 
 with open("opt_results.txt", "a") as f:
-    f.write(f"opt_loss={opt_loss:.3f}, params={opt_params}\n")
+    f.write(f"opt_loss={opt_loss:.5f}, params={opt_params}\n")
