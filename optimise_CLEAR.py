@@ -69,12 +69,12 @@ CLEAR_lattice.append(rft.Drift(2.024))  #drift to water tank
 
 Twiss = RF_Track.Bunch6d_twiss()
 
-Twiss.beta_x = 17.7        # m
-Twiss.beta_y = 13.9     # m
-Twiss.alpha_x = -1.14 
-Twiss.alpha_y = 0.359
-Twiss.emitt_x = 4.62     # mm.mrad normalised emittance
-Twiss.emitt_y = 3.86     # mm.mrad
+Twiss.beta_x = 10.6        # m
+Twiss.beta_y = 7.65     # m
+Twiss.alpha_x = -0.448 
+Twiss.alpha_y = -0.512
+Twiss.emitt_x = 10.4     # mm.mrad normalised emittance
+Twiss.emitt_y = 18.3    # mm.mrad
 # Twiss.sigma_t = 10 * RF_Track.ps       # mm/c   or 37 * RF_Track.ps
 # Twiss.sigma_pt = 10     # permille
 Twiss.mean_xp = 0.0
@@ -82,10 +82,10 @@ Twiss.mean_yp = 0.0
 
 B0 = RF_Track.Bunch6d_QR(mass, population, charge, P_ref, Twiss, N_particles)             # reference bunch
 
-def loss (last_triplet_k1s, lattice, B0):
+def loss (last_triplet_k1s, lattice, B0,target_size=6):
     Q = lattice.get_quadrupoles()
-    for i in range(len(Q)-6, len(Q)):
-        Q[i].set_strength(last_triplet_k1s[i-9])
+    for i in range(len(Q)-3, len(Q)):
+        Q[i].set_strength(last_triplet_k1s[i-6])
 
     B1 = lattice.track(B0)
     I = B1.get_info()
@@ -102,7 +102,7 @@ def loss (last_triplet_k1s, lattice, B0):
     # loss = sx**2 + sy**2 + (sx-sy)**2 + (ax-ay)**2 
     masked_x, masked_y = mask2d(M[:,0],M[:,2])
     print('max x,y:', max(masked_x), max(masked_y))
-    loss = nearest_neighbor_test(masked_x,masked_y)[2]
+    loss = nearest_neighbor_test(masked_x,masked_y)[2] + 0.5 * abs(masked_x.max()/target_size-1) + 0.5 * abs(masked_y.max()/target_size-1)
     
     print('loss:', loss,'k1s =', last_triplet_k1s)
     return loss
@@ -111,12 +111,12 @@ B0_opt = RF_Track.Bunch6d_QR(mass, population, charge, P_ref, Twiss, 100000)
 rng = np.random.default_rng()
 opt_loss = np.inf
 for i in range(20):
-  x0 = rng.integers(low=0, high=700, size=6) * [1,-1,1,1,-1,1]
+  x0 = rng.integers(low=0, high=700, size=3) * [1,-1,1]
 
   # x0 = [20,-20,20,20,-20,20]
   res = minimize(loss,
                         x0=x0, args=(CLEAR_lattice,B0_opt),
-                        bounds=[ (0,700),(-700,0),(0,700),(0,700),(-700,0),(0,700)], #highest can be 772 apparently
+                        bounds=[ (0,700),(-700,0),(0,700)], #highest can be 772 apparently
                         method='Powell',
                         options={'disp': True
                                 , 'xtol':0.01}
@@ -127,4 +127,5 @@ for i in range(20):
           opt_params = res.x
 
 with open("opt_results.txt", "a") as f:
-    f.write(f"opt_loss={opt_loss:.5f}, params={opt_params}\n")
+    params_str = ",".join(f"{p:.5f}" for p in opt_params)
+    f.write(f"opt_loss={opt_loss:.5f}, params={params_str}\n")
