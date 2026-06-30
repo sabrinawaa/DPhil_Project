@@ -17,15 +17,20 @@ def supergaussian1D(x, A, x0, sigma_x, P):
 def supergaussian1D_skewed(x, A, x0, sigma_x, P,m,c):
     return A * np.exp(-( (x-x0)**2 /(2*sigma_x**2) )**P) + m * x + c
 
+def supergaussian2D_skewed(XY, A, x0, y0, sx, sy, Px, Py, mx, my, c):
+    x, y = XY
+    core = ((x - x0)**2 / (2 * sx**2))**Px + ((y - y0)**2 / (2 * sy**2))**Py
+    z = A * np.exp(-core) + mx * x + my * y + c
+    return z.ravel()  # Flatten the output for curve_fit
 
 def MSE(params, x, y, dose_map):
     model = supergaussian(x, y, *params)
     return np.sum((model - dose_map)**2)  # Mean squared error
 
-def r90(sig,P):
+def x90(sig,P):
     return sig * np.sqrt(2) * (-np.log(0.9))**(1/(2*P))
 
-def plotDoseMap(x, y, doseMap,fitted_map,P,sig,r_90, depth,output_filename):
+def plotDoseMap(x, y, doseMap,fitted_map,P,sig,x_90, depth,output_filename):
     dose_y = fitted_map[fitted_map.shape[0] // 2, :]  # Middle row (horizontal slice)
     dose_x = fitted_map[:, fitted_map.shape[1] // 2]  # Middle column (vertical slice)
 
@@ -38,7 +43,7 @@ def plotDoseMap(x, y, doseMap,fitted_map,P,sig,r_90, depth,output_filename):
     # Main 2D scatter plot
     ax_main = fig.add_subplot(grid[1:, :-2])  # Use only the first 3 columns (exclude colorbar space)
     im = ax_main.scatter(x, y, c=doseMap, cmap="viridis", s=120)
-    ax_main.set_title(f"Super-Gaussian  P = {P:.2f}, sigma = {sig:.2f}, r90 = {r_90:.2f}")
+    ax_main.set_title(f"Super-Gaussian  P = {P:.2f}, sigma = {sig:.2f}, x90 = {x_90:.2f}")
     ax_main.set_xlabel("X (mm)")
     ax_main.set_ylabel("Y (mm)")
 
@@ -101,12 +106,12 @@ def fitDoseMap (n_particles, dose_depth,output_filename,acChargenC=10, zoom_fact
     fitted_map = supergaussian(x, y, *fit_params)
     print(fitted_map.shape)
     sig, P = fit_params[3], fit_params[5]
-    r_90 = r90(sig,P)
+    x_90 = x90(sig,P)
     if plot:
-        plotDoseMap(x, y, doseMap,fitted_map,P,sig,r_90, dose_depth, output_filename)
+        plotDoseMap(x, y, doseMap,fitted_map,P,sig,x_90, dose_depth, output_filename)
     else:
-        return fitted_map, P, sig, r_90
-    
+        return fitted_map, P, sig, x_90
+
 def plot_dose(dosemap, x, y, strip_width=10, centred=False,twogaussian=False): #cleaner version with supergaussian and 2gaussian fits
     h, w = dosemap.shape
 
@@ -182,12 +187,12 @@ def plot_dose(dosemap, x, y, strip_width=10, centred=False,twogaussian=False): #
 
     sig_x, sig_y = params_x[2], params_y[2]
     P_x, P_y = params_x[3], params_y[3]
-    r90_x, r90_y = r90(sig_x, P_x), r90(sig_y, P_y)
+    x90_x, x90_y = x90(sig_x, P_x), x90(sig_y, P_y)
 
     # X histogram
     ax_x.bar(x, slice_row, width=dx, alpha=0.7)
     ax_x.plot(x, supergaussian1D(x, *params_x), 'r-',
-              label=f"SuperGaussian (P={params_x[3]:.2f}, r90={r90_x:.2f})")
+              label=f"SuperGaussian (P={params_x[3]:.2f}, x90={x90_x:.2f})")
     if twogaussian:
         ax_x.plot(x, sum_2gaussians(x, *params_xx), 'g-',
                   label=f"2-Gaussian (x0/σ={abs(params_xx[1])/params_xx[2]:.2f})")
@@ -198,7 +203,7 @@ def plot_dose(dosemap, x, y, strip_width=10, centred=False,twogaussian=False): #
     # Y histogram
     ax_y.barh(y, slice_col, height=dy, alpha=0.7)
     ax_y.plot(supergaussian1D(y, *params_y), y, 'r-',
-              label=f"SuperGaussian (P={params_y[3]:.2f}, r90={r90_y:.2f})")
+              label=f"SuperGaussian (P={params_y[3]:.2f}, x90={x90_y:.2f})")
     if twogaussian:
         ax_y.plot(sum_2gaussians(y, *params_yy), y, 'g-',
                 label=f"2-Gaussian (x0/σ={abs(params_yy[1])/params_yy[2]:.2f})")
@@ -327,14 +332,14 @@ def plot_phsp(T, M, n_bins=50, fov=200, title=None, slice_width=1): #cleaner ver
 
     xy_fit_curve = np.linspace(-fov, fov, 500)
 
-    r90_x = r90(params_x[2], params_x[3])
-    r90_y = r90(params_y[2], params_y[3])
+    x90_x = x90(params_x[2], params_x[3])
+    x90_y = x90(params_y[2], params_y[3])
 
     # X histogram
     ax_histx.hist(phsp_xslice[:, 0], bins=n_bins, range=[-fov, fov],
                     color="b", alpha=0.6)
     ax_histx.plot(xy_fit_curve, supergaussian1D(xy_fit_curve, *params_x),
-                    'r-', label=f"SuperGaussian Fit (P={params_x[3]:.2f}, r90={r90_x:.2f})")
+                    'r-', label=f"SuperGaussian Fit (P={params_x[3]:.2f}, x90={x90_x:.2f})")
     ax_histx.plot(xy_fit_curve, sum_2gaussians(xy_fit_curve, *params_xx),
                     'g-', label=f"2-Gaussian Fit (x0/sigma={params_xx[1]/params_xx[2]:.2f})")
     ax_histx.legend(loc="lower left")
@@ -346,7 +351,7 @@ def plot_phsp(T, M, n_bins=50, fov=200, title=None, slice_width=1): #cleaner ver
     ax_histy.hist(phsp_yslice[:, 2], bins=n_bins, range=[-fov, fov],
                     color="b", alpha=0.6, orientation="horizontal")
     ax_histy.plot(supergaussian1D(xy_fit_curve, *params_y), xy_fit_curve,
-                    'r-', label=f"SuperGaussian Fit (P={params_y[3]:.2f}, r90={r90_y:.2f})")
+                    'r-', label=f"SuperGaussian Fit (P={params_y[3]:.2f}, x90={x90_y:.2f})")
     ax_histy.plot(sum_2gaussians(xy_fit_curve, *params_yy), xy_fit_curve,
                     'g-', label=f"2-Gaussian Fit (x0/sigma={params_yy[1]/params_yy[2]:.2f})")
     ax_histy.legend(loc="lower right")

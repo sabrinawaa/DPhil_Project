@@ -8,7 +8,7 @@ from sklearn.neighbors import NearestNeighbors
 PRC_UniformDisk = None
 
 
-def merit_beam_Uniform(B1, Rmin, Rmax, transmission=0.998):
+def merit_beam_Uniform(B1, R, transmission_goal=0.998):
     global PRC_UniformDisk
 
     # --- Phase space extraction ---
@@ -52,9 +52,8 @@ def merit_beam_Uniform(B1, Rmin, Rmax, transmission=0.998):
         def err_R(R):
             return np.sum((np.percentile(P, prc_short) - R * disk_short)**2)
 
-        R = fminbound(err_R, 0, 2 * Rmax)
-        XV.append(R * 0.98 * np.cos(np.deg2rad(Phid)))
-        YV.append(R * 0.98 * np.sin(np.deg2rad(Phid)))
+        XV.append(R * np.cos(np.deg2rad(Phid)))
+        YV.append(R * np.sin(np.deg2rad(Phid)))
 
     # complete polygon using opposite points
     XV = np.concatenate([XV, -np.array(XV)])
@@ -84,7 +83,6 @@ def merit_beam_Uniform(B1, Rmin, Rmax, transmission=0.998):
         def err_R(R):
             return np.sum((np.percentile(P, PRC) - R * PRC_UniformDisk)**2)
 
-        R = fminbound(err_R, 0, 2 * Rmax)
         F = err_R(R)
 
         # uniformity term
@@ -93,22 +91,20 @@ def merit_beam_Uniform(B1, Rmin, Rmax, transmission=0.998):
         # kurtosis term
         M_kurtosis += ((kurtosis(P) / 2 - 1)**2) / N
 
-        # size penalties
-        M_size += max(R / Rmin - 1, 0)**2      # R too small
-        M_size += min(R / Rmax - 1, 0)**2      # R too large
 
     # scale terms
     M_uniformity *= 1e4
     M_kurtosis *= 1e4 * 0
-    M_size *= 1e8 *0
+    # M_size *= 1e8 *0
 
     # Transmission term
-    trans_ratio = B1.get_ngood() / B1.size()
-    M_transmission = 1e8 * min(trans_ratio - transmission, 0)**2
-    # print(M_uniformity, M_kurtosis, M_size,M_transmission,R)
+    print(np.sum(X**2 + Y**2 < R**2), len(M1[:, 0]))
+    transmission = np.sum(X**2 + Y**2 < R**2) / len(M1[:, 0])
+    M_transmission = 100 * max(transmission_goal - transmission, 0)**2
+    print(M_uniformity, M_kurtosis, M_transmission,R)
 
     # Final merit value
-    return M_uniformity + M_kurtosis + M_size + M_transmission
+    return M_uniformity + M_kurtosis + M_transmission
 
 
 def mask2d(x,y,pc=60):
