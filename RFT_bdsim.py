@@ -48,5 +48,5 @@ fit_params = result.x
 # Calculate the fitted super-Gaussian
 fitted_map = supergaussian(x, y, *fit_params)
 sig, P = fit_params[3], fit_params[5]
-r_90 = r90(sig,P)
-plotDoseMap(x, y, doseMap,fitted_map,P,sig,r_90, dose_depth, "bdsim_dose")
+x_90 = x90(sig,P)
+plotDoseMap(x, y, doseMap,fitted_map,P,sig,x_90, dose_depth, "bdsim_dose")

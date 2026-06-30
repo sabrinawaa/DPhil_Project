@@ -101,7 +101,7 @@ elif profile == "dose":
 
     setup.add_tank_bins(s1_pos+s1_depth+532+s2_depth+1585+50+389,dose_depth,130,130,1, output_filename, 30)
 
-# setup.run_topas(view_setup=False)
+setup.run_topas(view_setup=False)
 
 if profile == "intensity":
         # initialise plotting class

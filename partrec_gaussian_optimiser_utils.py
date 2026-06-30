@@ -59,6 +59,18 @@ class partrec_gaussian_optimiser_utils():
         file.write('dv:Ma/PMMA/RefractiveIndex/Energies = 2 2.0 3.35 eV\n')
         file.write('uv:Ma/PMMA/RefractiveIndex/Values = 2 1.49 1.49\n')
 
+        file.write('sv:Ma/Mylar/Components = 3 "Carbon" "Hydrogen" "Oxygen"\n')
+        file.write('uv:Ma/Mylar/Fractions = 3  0.625017  0.041959  0.333025\n')
+        file.write('d:Ma/Mylar/Density = 1.40 g/cm3\n')
+        file.write('d:Ma/Mylar/MeanExcitationEnergy = 78.7 eV\n')
+
+        file.write('sv:Ma/YAG/Components = 4 "Yttrium" "Oxygen" "Aluminum" "Cerium"\n')
+        file.write('uv:Ma/YAG/Fractions = 4 0.6538961 0.20049 0.1188277 0.02\n')
+        file.write('d:Ma/YAG/Density = 4.57 g/cm3\n')
+        file.write('s:Ma/YAG/DefaultColor = "Yellow"\n')
+        file.write('b:Ma/YAG/NormalizeFractions = "True"\n')
+
+
         file.write('sv:Ma/Anticorodal/Components = 9 "Aluminum" "Silicon" "Magnesium" "Manganese" "Iron" "Chromium" "Titanium" "Copper" "Zinc"\n')
         file.write('uv:Ma/Anticorodal/Fractions = 9  0.9625  0.0100  0.0090  0.0070  0.0050  0.0025  0.0010  0.0010  0.0020\n')
         file.write('d:Ma/Anticorodal/Density = 2.7 g/cm3\n')
@@ -119,11 +131,11 @@ class partrec_gaussian_optimiser_utils():
         )
         file.write(
             "d:So/acc_source/BeamAngularCutoffX= " +
-            str(5 * sigma_px) + " mrad\n"
+            str(15 * sigma_px) + " mrad\n" #was 5
         )
         file.write(
             "d:So/acc_source/BeamAngularCutoffY = " +
-            str(5 * sigma_py) + " mrad\n"
+            str(15 * sigma_py) + " mrad\n" #was 5
         )
         file.write('s:So/acc_source/BeamAngularDistribution="Gaussian"\n')
         # set delta E
@@ -180,11 +192,11 @@ class partrec_gaussian_optimiser_utils():
         file.write("d:Ge/S1/TransZ = -" +
                    str(position+thickness / 2) + " mm\n")
         
-    def add_cylinder(self, name, thickness, in_radius, out_radius, material, position,):
+    def add_cylinder(self, name, thickness, in_radius, out_radius, material, position, parent = "World"):
         file = self.file
         file.write('s:Ge/'+name+'/Type = "TsCylinder"\n')
         # defined from world centre
-        file.write('s:Ge/'+name+'/Parent="World"\n')
+        file.write('s:Ge/'+name+'/Parent="' + parent + '"\n')
         # set material based on input argument
         file.write("s:Ge/"+name+"/Material=" + '"' + material + '"' + "\n")
 
@@ -199,11 +211,11 @@ class partrec_gaussian_optimiser_utils():
         file.write("d:Ge/"+name+"/TransZ = -" +
                    str(position+thickness / 2) + " mm\n")
         
-    def add_box(self, name, thickness, x,y, material, position,):
+    def add_box(self, name, thickness, x,y, material, position,rotation=0, parent = "World"):
         file = self.file
         file.write('s:Ge/'+name+'/Type = "TsBox"\n')
         # defined from world centre
-        file.write('s:Ge/'+name+'/Parent="World"\n')
+        file.write('s:Ge/'+name+'/Parent="' + parent + '"\n')
         # set material based on input argument
         file.write("s:Ge/"+name+"/Material=" + '"' + material + '"' + "\n")
 
@@ -214,6 +226,8 @@ class partrec_gaussian_optimiser_utils():
         # set position of scatterer so that the edge is on the origin
         file.write("d:Ge/"+name+"/TransZ = -" +
                    str(position+thickness / 2) + " mm\n")
+        file.write("d:Ge/" + name + "/RotY=" + str(rotation)+ " deg\n")
+
 
     def add_gaussian_scatterer(self, max_thickness, radius, convolution_factor, N_slices, material, position, show_shape=False,kapton=False):
         # position here refers to downstream face of scatterer (don't ask me why)
@@ -297,12 +311,12 @@ class partrec_gaussian_optimiser_utils():
             # increment to begin next slice until shape completion
             i = i + 1
 
-    def add_collimator(self, Rmax, R_W, Rmin, length, position):
+    def add_collimator(self, Rmax, R_W, Rmin, length, position,parent = "World"):
         file = self.file
         # define collimator as cylinder
         file.write('s:Ge/Collimator_outer/Type = "TsCylinder"\n')
         # set parent to world
-        file.write('s:Ge/Collimator_outer/Parent = "World"\n')
+        file.write('s:Ge/Collimator_outer/Parent="' + parent + '"\n')
         # set material - vacuum for simplicity
         file.write('s:Ge/Collimator_outer/Material="Steel316"\n')
         # set radius of collimator
@@ -330,14 +344,11 @@ class partrec_gaussian_optimiser_utils():
         # set position of collimator at appropriate distance from beam source
 
 
-        
-       
-
-    def add_patient(self, position):
+    def add_patient(self, position,parent = "World"):
         file = self.file
         # define scorer surface
         file.write('s:Ge/ScorerSurface/Type="TsBox"\n')
-        file.write('s:Ge/ScorerSurface/Parent = "World"\n')
+        file.write('s:Ge/ScorerSurface/Parent="' + parent + '"\n')
         # set arbitrary material - vacuum for simplicity
         file.write('s:Ge/ScorerSurface/Material="G4_WATER"\n')
 
@@ -381,10 +392,10 @@ class partrec_gaussian_optimiser_utils():
         file.write("d:Ge/Tank/TransZ=-" +
                    str(position+depth/2) + " mm\n") #transZ is position of centre of tank
         
-    def add_tank_bins(self, position, depth, x_bins, y_bins, z_bins, output_filename, width=300):
+    def add_tank_bins(self, position, depth, x_bins, y_bins, z_bins, output_filename, width=300, parent = "World"):
         file = self.file
         file.write('s:Ge/Tank/Type="TsBox"\n')
-        file.write('s:Ge/Tank/Parent = "World"\n')
+        file.write('s:Ge/Tank/Parent="' + parent + '"\n')
         # set arbitrary material - vacuum for simplicity
         file.write('s:Ge/Tank/Material="G4_WATER"\n')
         # set arbitrarily large surface area of scorer

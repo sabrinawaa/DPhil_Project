@@ -15,7 +15,7 @@ class bdsim_utils():
         home_directory="/Applications/",
         no_of_threads="6",
         filename="lattice.gmad",
-        file_directory='/Users/sabrinawang/Desktop/Cameron_Project/'
+        file_directory='/Users/sabrinawang/Desktop/DPhil_Project/'
     ):
         file = open(file_directory + filename, "w")
 

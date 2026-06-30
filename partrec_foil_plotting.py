@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from uniformity_fit import supergaussian1D, r90
+from uniformity_fit import supergaussian1D, x90
 from scipy.optimize import curve_fit
 
 
@@ -80,7 +80,7 @@ class partrec_foil_plotting:
 
         sig_x, sig_y = params_x[2], params_y[2]
         P_x, P_y = params_x[3], params_y[3]
-        r90_x, r90_y = r90(sig_x, P_x), r90(sig_y, P_y)
+        x90_x, x90_y = x90(sig_x, P_x), x90(sig_y, P_y)
 
         # --- FIGURE LAYOUT (scatter + hist X + hist Y) ---
         fig, axs = plt.subplot_mosaic(
@@ -108,7 +108,7 @@ class partrec_foil_plotting:
         ax_histx.hist(phsp_xslice["X"], bins=n_bins, range=[-fov, fov],
                     color="b", alpha=0.6)
         ax_histx.plot(xy_fit_curve, supergaussian1D(xy_fit_curve, *params_x),
-                    'r-', label=f"P={P_x:.2f}, r90={r90_x:.2f}")
+                    'r-', label=f"P={P_x:.2f}, x90={x90_x:.2f}")
         ax_histx.set_ylabel("Counts")
         ax_histx.legend()
 
@@ -117,7 +117,7 @@ class partrec_foil_plotting:
                     orientation="horizontal",
                     color="b", alpha=0.6)
         ax_histy.plot(supergaussian1D(xy_fit_curve, *params_y), xy_fit_curve,
-                    'r-', label=f"P={P_y:.2f}, r90={r90_y:.2f}")
+                    'r-', label=f"P={P_y:.2f}, x90={x90_y:.2f}")
         ax_histy.set_xlabel("Counts")
         ax_histy.legend()
 
@@ -131,7 +131,7 @@ class partrec_foil_plotting:
         col_phsp = phsp[(phsp.R < col)].dropna()
 
         if particle == 'e':
-            print("Electron number inside r90 =", len(col_phsp["X"]))
+            print("Electron number inside x90 =", len(col_phsp["X"]))
             print("Electron Transmission =", len(col_phsp["X"]) / len(phsp["X"]) * 100, "%")
             print("Mean Energy at Dump:", np.mean(col_phsp["E"]))
             print("Energy Spread at Dump:",
@@ -139,7 +139,7 @@ class partrec_foil_plotting:
                 np.mean(col_phsp["E"]) * 100, "%")
 
         if particle == 'y':
-            print("Photon number inside r90 =", len(col_phsp["X"]))
+            print("Photon number inside x90 =", len(col_phsp["X"]))
             print("Energy Spread at Dump:",
                 (np.max(col_phsp["E"]) - np.min(col_phsp["E"])) /
                 np.mean(col_phsp["E"]) * 100, "%")
