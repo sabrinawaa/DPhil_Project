@@ -52,25 +52,22 @@ def beam_area_mask(img, fraction, cx,cy):
 
     return mask
 
-def plot_dose1(dosemap, im_type, cx=None, cy=None):
+
+
+def plot_dose1(dosemap, im_type, x, y):
+    """
+    dosemap: 2D array, dosemap[row, col] with row <-> y, col <-> x
+    x, y: 1D physical-coordinate arrays (mm), already pixel-calibrated by the
+          caller (len(x) == dosemap.shape[1], len(y) == dosemap.shape[0]).
+    """
     h, w = dosemap.shape
     strip_width = 10
     r_mm = 2.0
 
-    if im_type == 'RCF':
-        pixel_calibration = 0.08467  # mm/pixel
-    elif im_type == "YAG":
-        pixel_calibration = 0.0378 # mm/pixel
-    else:
-        raise ValueError("Unknown im_type")
+    # Beam centroid in pixel/array-index coordinates, used for initial guess (maybe just centre of screen is enough)
+    cx_idx, cy_idx = beam_centroid(dosemap)
+    x, y = x - x[cx_idx], y - y[cy_idx]
 
-    # Beam centroid in pixel coordinates， use for initial guess (maybe just centre of screen is enough)
-    if cx is None or cy is None:
-        cx, cy = beam_centroid(dosemap)
-
-    # Centered physical coordinates in mm
-    x = (np.arange(w) - cx) * pixel_calibration
-    y = (np.arange(h) - cy) * pixel_calibration
     xx, yy = np.meshgrid(x, y)
     X = np.vstack((xx.ravel(), yy.ravel()))
     Z = dosemap.ravel()
@@ -80,44 +77,25 @@ def plot_dose1(dosemap, im_type, cx=None, cy=None):
     # Fit the slices
     A0 = float(np.nanmax(dosemap) - np.nanmin(dosemap))
     c0 = float(np.nanmin(dosemap))
-    p0 = [A0, 0.0, 0.0, 5.0, 5.0, 2.0, 2.0, 0.0, 0.0, c0]
+    p0_2d = [A0, 0.0, 0.0, 5.0, 5.0, 2.0, 2.0, 0.0, 0.0, c0]
 
     lower = [0.0, -np.inf, -np.inf, 1e-6, 1e-6, 1.0, 1.0, -np.inf, -np.inf, -np.inf]
     upper = [np.inf, np.inf, np.inf, np.inf, np.inf, 20.0, 20.0, np.inf, np.inf, np.inf]
     
-
-    # lower = [0, -np.inf, 1e-6, 1.0, -np.inf, -np.inf]
-    # upper = [np.inf, np.inf, 20, np.inf, np.inf, np.inf]
-
-    # params_x, cov_x = curve_fit(supergaussian1D_skewed, x, slice_row, p0=p0, bounds=(lower, upper))
-    # params_y, cov_y = curve_fit(supergaussian1D_skewed, y, slice_col, p0=p0, bounds=(lower, upper))
-    params, cov = curve_fit(
+    params_2d, _ = curve_fit(
         supergaussian2D_skewed,
-        X,Z,p0=p0,
+        X,Z,p0=p0_2d,
         bounds=(lower, upper))
     
-    A, x0, y0, sig_x, sig_y, P_x, P_y, mx, my, c = params
-    err = np.sqrt(np.diag(cov))
+    A, x0, y0, sig_x2d, sig_y2d, P_x2d, P_y2d, mx, my, c = params_2d
 
-    # sig_x, sig_y = params_x[2], params_y[2]
-    # errSigx, errSigy = np.sqrt(np.diag(cov_x)[2]), np.sqrt(np.diag(cov_y)[2])
+    # Recentre x and y coordinates (mm) on the fitted superGaussian centre
+    new_x, new_y = x - x0, y - y0
 
-    # P_x, P_y = params_x[3], params_y[3]
-    # errPx_fit, errPy_fit = np.sqrt(np.diag(cov_x)[3]), np.sqrt(np.diag(cov_y)[3])
-
-    errSigx, errSigy, errP_x, errP_y = err[3], err[4], err[5], err[6]
-    x90_x = abs(x90(sig_x, P_x))
-    x90_y = abs(x90(sig_y, P_y))
-
-    err_x90_x = rFerr(sig_x, P_x, errSigx, errP_x, 0.9)
-    err_x90_y = rFerr(sig_y, P_y, errSigy, errP_y, 0.9)
-
-    # Update center from fitted superGaussian center
-    cx = int(cx + x0 / pixel_calibration)
-    cy = int(cy + y0 / pixel_calibration)
-
-    new_x = (np.arange(w) - cx) * pixel_calibration #recentre x and y coordinates to fitted centre
-    new_y = (np.arange(h) - cy) * pixel_calibration
+    # Convert the fitted centre offset (mm) back to an array index using the
+    # pixel spacing (mm/pixel) so it stays in the same units as cx_idx/cy_idx
+    new_cx_idx = int(round(cx_idx + x0 / dx))
+    new_cy_idx = int(round(cy_idx + y0 / dy))
     xx, yy = np.meshgrid(new_x, new_y)
     circle_mask = (xx**2 + yy**2) <= r_mm**2
 
@@ -128,28 +106,52 @@ def plot_dose1(dosemap, im_type, cx=None, cy=None):
         dose_centre = np.nan
         dose_std = np.nan
 
-    row0 = max(0, cy - strip_width // 2)
-    row1 = min(h, cy + strip_width // 2)
-    col0 = max(0, cx - strip_width // 2)
-    col1 = min(w, cx + strip_width // 2)
+    row0 = max(0, new_cy_idx - strip_width // 2) #indices
+    row1 = min(h, new_cy_idx + strip_width // 2)
+    col0 = max(0, new_cx_idx - strip_width // 2)
+    col1 = min(w, new_cx_idx + strip_width // 2)
 
     slice_row = np.mean(dosemap[row0:row1, :], axis=0)
     slice_col = np.mean(dosemap[:, col0:col1], axis=1)
+    # supergaussian 1d fits
+    lower = [0, -np.inf, 1e-6, 1.0, -np.inf, -np.inf]
+    upper = [np.inf, np.inf, 20, np.inf, np.inf, np.inf]
 
-    lower = [0.0,    0.0,   0.0, -np.inf,   -np.inf, -np.inf]
+    p0 = [A, 0, sig_x2d, P_x2d, 0, c]
+    params_x, cov_x = curve_fit(supergaussian1D_skewed, new_x, slice_row, p0=p0, bounds=(lower, upper))
+    params_y, cov_y = curve_fit(supergaussian1D_skewed, new_y, slice_col, p0=p0, bounds=(lower, upper))
+
+    sig_x, sig_y = params_x[2], params_y[2]
+    errSigx, errSigy = np.sqrt(np.diag(cov_x)[2]), np.sqrt(np.diag(cov_y)[2])
+
+    P_x, P_y = params_x[3], params_y[3]
+    err_Px, err_Py = np.sqrt(np.diag(cov_x)[3]), np.sqrt(np.diag(cov_y)[3])
+
+    x90_x = abs(x90(sig_x, P_x))
+    x90_y = abs(x90(sig_y, P_y))
+
+    err_x90_x = rFerr(sig_x, P_x, errSigx, err_Px, 0.9)
+    err_x90_y = rFerr(sig_y, P_y, errSigy, err_Py, 0.9)
+
+    # 2-Gaussian fits
+    lower = [0.0,    0.0,   1e-6, -np.inf,   -np.inf, -np.inf]
     upper = [np.inf, 10.0, 10.0, np.inf, np.inf, np.inf]
-   
-    p00 = [np.max(slice_row), (sig_x+sig_y)/2 *1.1, (sig_x+sig_y)/2, 0, 0, 0]
+
+    p00 = [np.max(slice_row), np.std(slice_row)*1.1, np.std(slice_row), 0, 0, 0]
+
     try:
-        params_xx, cov_xx = curve_fit(sum_2gaussians_skewed, new_x, slice_row, p0=p00, bounds=(lower, upper),maxfev=20000)
+        params_xx, cov_xx = curve_fit(sum_2gaussians_skewed, new_x, slice_row, p0=p00, bounds=(lower, upper), maxfev=20000)
     except Exception as e:
-        print(f"Failed to fit sum of 2 Gaussians: {e}")
+        print(f"Failed to fit sum of 2 Gaussians (x): {e}")
         traceback.print_exc()
+        params_xx = np.full(6, np.nan)
+
     try:
-        params_yy, cov_yy = curve_fit(sum_2gaussians_skewed, new_y, slice_col, p0=p00, bounds=(lower, upper),maxfev=20000)
+        params_yy, cov_yy = curve_fit(sum_2gaussians_skewed, new_y, slice_col, p0=p00, bounds=(lower, upper), maxfev=20000)
     except Exception as e:
-        print(f"Failed to fit sum of 2 Gaussians: {e}")
+        print(f"Failed to fit sum of 2 Gaussians (y): {e}")
         traceback.print_exc()
+        params_yy = np.full(6, np.nan)
 
     err_dose = np.sqrt(dose_std**2 + 0) #add contribution from dosimetry
 
@@ -157,7 +159,7 @@ def plot_dose1(dosemap, im_type, cx=None, cy=None):
     ax_main.set_xlabel("X (mm)")
     ax_main.set_ylabel("Y (mm)")
 
-    im = ax_main.imshow( dosemap, origin="lower", aspect="equal", cmap="viridis", extent=[new_x[0], new_x[-1], new_y[0], new_y[-1]] )
+    im = ax_main.imshow(dosemap, origin="lower", aspect="equal", cmap="viridis", extent=[new_x[0], new_x[-1], new_y[0], new_y[-1]] )
     circle = Circle((0, 0), r_mm, fill=False, linestyle=":", linewidth=1.8, edgecolor="white")
     ax_main.add_patch(circle)
     if im_type == "RCF":
@@ -185,8 +187,7 @@ def plot_dose1(dosemap, im_type, cx=None, cy=None):
 
     # Top plot: X slice
     ax_x.bar(new_x, slice_row, width=dx, alpha=0.7)
-    
-    ax_x.plot( new_x,supergaussian1D_skewed(new_x, A,0,sig_x, P_x, mx, c),  'r-',label=f"SuperGaussian Fit (P={P_x:.2f}, x90={x90_x:.2f})")
+    ax_x.plot( new_x,supergaussian1D_skewed(new_x, *params_x),  'r-',label=f"SuperGaussian Fit (P={P_x:.2f}, x90={x90_x:.2f})")
     ax_x.plot(new_x, sum_2gaussians_skewed(new_x, *params_xx), 'b-', label=f"2-Gaussian Fit (x0/sigma={abs(params_xx[1])/params_xx[2]:.2f})")
     if im_type == 'YAG':
         ax_x.set_ylabel("CD [pC/mm²]")
@@ -197,7 +198,7 @@ def plot_dose1(dosemap, im_type, cx=None, cy=None):
 
     # Right plot: Y slice
     ax_y.barh(new_y, slice_col, height=dy, alpha=0.7)
-    ax_y.plot(supergaussian1D_skewed(new_y, A,0,sig_y, P_y, my, c), new_y,  'r-',label=f"SuperGaussian Fit (P={P_y:.2f}, x90={x90_y:.2f})")
+    ax_y.plot(supergaussian1D_skewed(new_y, *params_y), new_y,  'r-',label=f"SuperGaussian Fit (P={P_y:.2f}, x90={x90_y:.2f})")
     ax_y.plot(sum_2gaussians_skewed(new_y, *params_yy),new_y, 'b-', label=f"2-Gaussian Fit (x0/sigma={abs(params_yy[1])/params_yy[2]:.2f})")
     if im_type == 'YAG':
         ax_y.set_xlabel("CD [pC/mm²]")
@@ -216,12 +217,12 @@ def plot_dose1(dosemap, im_type, cx=None, cy=None):
     rect_h = Rectangle(
         (new_x[0], new_y[row0]),
         new_x[-1] - new_x[0],
-        (row1 - row0) * pixel_calibration,
+        (row1 - row0) * dy,
         edgecolor="white", facecolor="none",linewidth=1.5,linestyle="--")
 
     rect_v = Rectangle(
         (new_x[col0], new_y[0]),
-        (col1 - col0) * pixel_calibration,
+        (col1 - col0) * dx,
         new_y[-1] - new_y[0],
         edgecolor="white",facecolor="none",linewidth=1.5,linestyle="--")
 
@@ -231,4 +232,4 @@ def plot_dose1(dosemap, im_type, cx=None, cy=None):
     # Make sure shared limits align
     ax_x.set_xlim(ax_main.get_xlim())
     ax_y.set_ylim(ax_main.get_ylim())
-    return fig, cx, cy, dose_centre, P_x, P_y, x90_x, x90_y, abs(params_xx[1])/params_xx[2], abs(params_yy[1])/params_yy[2], err_dose, errP_x, errP_y, err_x90_x, err_x90_y
+    return fig, new_cx_idx, new_cy_idx, dose_centre, P_x, P_y, x90_x, x90_y, abs(params_xx[1])/params_xx[2], abs(params_yy[1])/params_yy[2], err_dose, err_Px, err_Py, err_x90_x, err_x90_y

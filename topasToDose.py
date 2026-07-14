@@ -4,18 +4,24 @@ import matplotlib.pyplot as plt
 # simParticles is the number of particles that the simulation was run with
 # acChargenC is the simulated total charge to create an appropriate scaling factor (effectively arbitrary, 10nC is reasonable for now)
 
-def getDosemap(filePath,simParticles,dose_depth,outputFileName,acChargenC=66.7, plot=False):
-    
-    doseMap = BinnedResult(filePath)#  2D array where each element corresponds to the dose deposited in a specific bin. The dose information is stored in the numerical values of the array elements.
-    rawDosemap=np.squeeze(doseMap.data['Sum'])
-    x,y = doseMap.dimensions[0].get_bin_centers(), doseMap.dimensions[0].get_bin_centers() #converts bins to cm
+
+def getDosemap(filePath, simParticles, dose_depth, outputFileName, acChargenC=66.7, plot=False, z_index=None):
+
+    doseMap = BinnedResult(filePath)
+    raw = doseMap.data['Sum']
+
+    if z_index is not None:
+        rawDosemap = raw[:, :, z_index]  # select one depth slice out of a multibin z scorer
+    else:
+        rawDosemap = np.squeeze(raw)     # unchanged behaviour for single-binned z
+
+    x,y = doseMap.dimensions[0].get_bin_centers(), doseMap.dimensions[1].get_bin_centers() #converts bins to cm
     x,y = x * 10, y * 10  # Convert from cm to mm
     eCharge=1.60217663e-19
     trueChargenC=(simParticles * eCharge)*1e9 #charge in simulation in nC
     scalingFactor=acChargenC/trueChargenC #number of particles simulated vs number of particles in actual beam
     scaledDosemap=np.rot90(rawDosemap * scalingFactor)
 
-    print(acChargenC)
     if plot:
         # plt.figure(figsize=(8, 6))
         # plt.imshow(scaledDosemap, extent=[0, scaledDosemap.shape[1], 0, scaledDosemap.shape[0]],
