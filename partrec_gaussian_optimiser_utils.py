@@ -25,14 +25,17 @@ class partrec_gaussian_optimiser_utils():
         self,
         world_material="Vacuum",
         home_directory="/Applications/",
-        no_of_threads="6",
+        no_of_threads=8,
         input_filename="topas_main.txt",
-        file_directory = '/Users/sabrinawang/Desktop/DPhil_Project/'
+        file_directory = '/Users/sabrinawang/Desktop/DPhil_Project/',
+        count_log_interval = 10000
     ):
         # write new topas script
         file = open(file_directory + input_filename, "w")
         # set number of threads depending on computing power available
-        file.write("i:Ts/NumberOfThreads=" + no_of_threads + "\n")
+        file.write("i:Ts/NumberOfThreads=" + str(no_of_threads) + "\n")
+        file.write("i:Ts/ShowHistoryCountAtInterval=" + str(count_log_interval) +"\n")
+
         # file.write('b:Ts/QuitIfManyHistoriesSeemAnomalous = "False"\n')  #REMOVE LATER
         # define arbitrarily large world
         file.write("d:Ge/World/HLX = 5.0 m\n")
@@ -64,11 +67,15 @@ class partrec_gaussian_optimiser_utils():
         file.write('d:Ma/Mylar/Density = 1.40 g/cm3\n')
         file.write('d:Ma/Mylar/MeanExcitationEnergy = 78.7 eV\n')
 
-        file.write('sv:Ma/YAG/Components = 4 "Yttrium" "Oxygen" "Aluminum" "Cerium"\n')
-        file.write('uv:Ma/YAG/Fractions = 4 0.6538961 0.20049 0.1188277 0.02\n')
-        file.write('d:Ma/YAG/Density = 4.57 g/cm3\n')
-        file.write('s:Ma/YAG/DefaultColor = "Yellow"\n')
-        file.write('b:Ma/YAG/NormalizeFractions = "True"\n')
+        # file.write('sv:Ma/YAG/Components = 4 "Yttrium" "Oxygen" "Aluminum" "Cerium"\n')
+        # file.write('uv:Ma/YAG/Fractions = 4 0.6538961 0.20049 0.1188277 0.02\n')
+        # file.write('d:Ma/YAG/Density = 4.57 g/cm3\n')
+        # file.write('s:Ma/YAG/DefaultColor = "Yellow"\n')
+        # file.write('b:Ma/YAG/NormalizeFractions = "True"\n')
+        file.write('sv:Ma/YAG/Components = 3 "Yttrium" "Aluminum" "Oxygen"\n')
+        file.write('uv:Ma/YAG/Fractions = 3  0.4493  0.2273  0.3234\n')
+        file.write('d:Ma/YAG/Density = 4.55 g/cm3\n')
+        file.write('s:Ma/YAG/DefaultColor = "yellow"\n')
 
 
         file.write('sv:Ma/Anticorodal/Components = 9 "Aluminum" "Silicon" "Magnesium" "Manganese" "Iron" "Chromium" "Titanium" "Copper" "Zinc"\n')

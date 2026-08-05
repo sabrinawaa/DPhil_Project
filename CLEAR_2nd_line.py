@@ -150,7 +150,7 @@ def build_rft_lattice(element_descriptions,
         end = 'CS.2NDLINE$END',
         P_ref = 198,
         quad_currents = [0]*9,
-        Q=1,
+        Q=-1,
         include_end=True):
     
     # --- Build lattice ---
@@ -172,7 +172,7 @@ def build_rft_lattice(element_descriptions,
             elem = RF_Track.Drift(L)
         elif etype == 'Quadrupole':
             K = get_Quad_K_from_I_2nd(quad_currents[qidx], L, P_ref)
-            if 'QDD' in name:
+            if 'QDG' in name:
                 K = -K
             elem = RF_Track.Quadrupole(L, P_ref / Q, K)
         elif etype == 'Corrector':

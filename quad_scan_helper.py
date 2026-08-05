@@ -1,236 +1,389 @@
+
 import numpy as np
-from numpy import sin, cos, sinh, cosh
-import re
-from CLEAR_line import get_ITF
-
-quad_length = 0.226
-
-quad_names = [
-    'CA.QFD0350', 
-    'CA.QDD0355', 
-    'CA.QFD0360',
-
-    'CA.QFD0510', 
-    'CA.QDD0515', 
-    'CA.QFD0520',
-
-    'CA.QFD0760', 
-    'CA.QDD0765', 
-    'CA.QFD0770',
-
-    'CA.QDD0870', 
-    'CA.QFD0880']
-
-class Drift:
-    def __init__(self, L):
-        self.L = L
-        self.M = np.array([[1, L, 0, 0],
-                           [0, 1, 0, 0], 
-                           [0, 0, 1, L], 
-                           [0, 0, 0, 1]])
-
-    def track(self, B0):
-        B = B0 @ self.M.T
-        return B
-    
-class Quad:
-    def __init__(self, L, K):
-        self.L = L
-        self.set_K(K)
-
-    def track(self, B0):
-        B = B0 @ self.M.T
-        return B
-    
-    def set_K(self, K):
-        self.K = K
-
-        K_sqrt = np.sqrt(np.abs(K))
-        L = self.L
-
-        # Just return a drift if K is 0 (avoids divide by zero)
-        if K == 0:
-            self.M = np.array([[1, L, 0, 0],
-                               [0, 1, 0, 0], 
-                               [0, 0, 1, L], 
-                               [0, 0, 0, 1]])
-            return
-
-        # Else
-        M_focus = np.array([[cos(L*K_sqrt)        , sin(L*K_sqrt)/K_sqrt],
-                            [-sin(L*K_sqrt)*K_sqrt, cos(L*K_sqrt)       ]])
-    
-        M_defocus = np.array([[cosh(L*K_sqrt)        , sinh(L*K_sqrt)/K_sqrt],
-                            [sinh(L*K_sqrt)*K_sqrt, cosh(L*K_sqrt)       ]])
-        
-        # Reorder focusing and defocusung matrix based on sign
-        zeros = np.zeros((2, 2))
-        if K > 0:
-            self.M = np.block([[M_focus,     zeros],
-                               [  zeros, M_defocus]])
-        else:
-            self.M = np.block([[M_defocus,   zeros],
-                               [    zeros, M_focus]])
-
-class Lattice():
-    def __init__(self):
-        self.elements = []
-
-    def append_element(self, element):
-        self.elements.append(element)
-
-    def append_elements(self, elements):
-        for element in elements:
-            self.elements.append(element)
-
-    def track(self, B0):
-        B_list = [B0]
-        for element in self.elements:
-            B0 = element.track(B0)
-            B_list.append(B0)
-
-        return B_list
-    
-    def get_matrix(self):
-        M = np.eye(4)
-        for element in self.elements:
-            M = element.M @ M
-
-        return M
-    
-    def get_twiss_matrix(self):
-        # x
-        M = self.get_matrix()
-        C, S, Cp, Sp = M[0:2, 0:2].flatten()
-        M_twiss_x = np.array([[ C**2,      -2*C*S,  S**2],
-                              [-C*Cp, C*Sp + S*Cp, -S*Sp],
-                              [Cp**2,    -2*Cp*Sp, Sp**2]])
-        
-        # y
-        C, S, Cp, Sp = M[2:4, 2:4].flatten()
-        M_twiss_y = np.array([[ C**2,      -2*C*S,  S**2],
-                              [-C*Cp, C*Sp + S*Cp, -S*Sp],
-                              [Cp**2,    -2*Cp*Sp, Sp**2]])
-        
-        return M_twiss_x, M_twiss_y
+from clear_quadrupole_scans.quad_scan import full_twiss, lorentz_factor
+from clear_quadrupole_scans.clear_lattice import get_lattice
+from clear_quadrupole_scans.linear_optics import Quad
+from scipy.optimize import curve_fit
 
 
-# Source (February 2026)
-# https://gitlab.cern.ch/acc-models/acc-models-clear/-/tree/master/survey
+QUAD_END_POSITIONS = np.array([30.297400000, 30.747400000, 31.197400000])  # m, exit of 760,765,770
+QUAD_LENGTH = 0.226  # m
+SCREEN_POSITION = 34.167400000  # m, thin screen
 
-def get_quad_K(I, P_ref):
-    G_0 = I * get_ITF(I) / quad_length
-    K = 299.8 * G_0 / P_ref # 1/m2
-    return K
+# QUAD_END_POSITIONS = np.array([18.509400000, 18.949400000, 19.389400000])  # m, exit of 350,355,360
+# QUAD_LENGTH = 0.226  # m
+# SCREEN_POSITION = 20.556400000 # m, thin screen screen 390
 
-# Load survey file
-def select_beamline(beamline):
+def _thin_quad_matrix(k, L):
+    """Thin-lens quad matrix: position unchanged, angle kicked by -k*L."""
+    return np.array([[1.0, 0.0], [-k * L, 1.0]])
 
-    if beamline == 'First':
-        with open('clear_quadrupole_scans/resources/ca.survey0_filtered.tfs') as file:
-            lines = file.readlines()
-    elif beamline == 'Second':
-        with open('clear_quadrupole_scans/resources/cs.survey0_filtered.tfs') as file:
-            lines = file.readlines()
-    return lines
+def _drift_matrix(d):
+    return np.array([[1.0, d], [0.0, 1.0]])
 
-with open('clear_quadrupole_scans/resources/clearST.survey0_filtered.tfs') as file:
-            lines = file.readlines()
 
-# Construct a dict of all elements relevant for the quad scan
-element_descriptions = {}
-previous_name = None
-quad_index = 0
+def _downstream_chain(scan_quad_index, quad_L=QUAD_LENGTH,
+                       quad_end_positions=QUAD_END_POSITIONS,
+                       screen_position=SCREEN_POSITION):
+    """
+    List of (kind, value) describing everything from the scanned quad's
+    entrance to the screen: the scanned quad itself, then only the FIXED
+    quads/drifts downstream of it. Upstream quads are not included at all.
+    kind is 'scan_quad', 'fixed_quad', or 'drift'.
+    """
+    quad_end_positions = np.asarray(quad_end_positions, dtype=float)
+    quad_start_positions = quad_end_positions - quad_L
+    names = [0, 1, 2]  # 760, 765, 770
 
-# Loop through the survey line-by-line
-for line in lines:
-    # Skip preamble
-    if line[0:2] != ' "':
-        continue
+    elements = [("scan_quad", scan_quad_index)]
+    pos = quad_end_positions[scan_quad_index]
+    for j in names[scan_quad_index + 1:]:
+        gap = quad_start_positions[j] - pos
+        elements.append(("drift", gap))
+        elements.append(("fixed_quad", j))
+        pos = quad_end_positions[j]
+    elements.append(("drift", screen_position - pos))
+    return elements
 
-    # Find relevant parts of text
-    text = re.findall(r'"([A-Za-z0-9.$_]+)"', line)
-    numbers = re.findall('\d+\.\d+', line)
+def _scan_quad_to_screen_matrix_thin(k_scan_value, k_fixed_by_index, scan_quad_index,
+                                      quad_L=QUAD_LENGTH,
+                                      quad_end_positions=QUAD_END_POSITIONS,
+                                      screen_position=SCREEN_POSITION):
+    """
+    Same beamline chain as `_scan_quad_to_screen_matrix` (scanned quad plus
+    any downstream fixed quads/drifts, upstream quads ignored), but every
+    quad -- scanned and fixed -- is approximated as a thin lens of strength
+    k*quad_L instead of the thick trig/hyperbolic matrix.
+    """
+    elements = _downstream_chain(scan_quad_index, quad_L, quad_end_positions, screen_position)
 
-    name = text[0]
+    M = np.eye(2)
+    for kind, val in elements:
+        if kind == "scan_quad":
+            m = _thin_quad_matrix(k_scan_value, quad_L)
+        elif kind == "fixed_quad":
+            m = _thin_quad_matrix(k_fixed_by_index[val], quad_L)
+        else:  # drift
+            m = _drift_matrix(val)
+        M = m @ M
+    return M
 
-    # Skip everything except screens and quads
-    if not('BTV' in name or 'QFD' in name or 'QDD' in name or 'QFG' in name or 'QDG' in name):
-        continue
 
-    # Skip unused screens
-    if name == 'CA.BTV0215' or name == 'CA.BTV0800':
-        continue
+def quad_scan_emittance_thinlens(k_scan, sigma, scan_quad_index, k_fixed_downstream=None,
+                                  quad_L=QUAD_LENGTH,
+                                  quad_end_positions=QUAD_END_POSITIONS,
+                                  screen_position=SCREEN_POSITION,
+                                  energy=None):
+    """
+    Parameters
+    ----------
+    k_scan : array-like, shape (N,)
+        Signed k [m^-2] of the scanned quad at each scan point.
+    sigma : array-like, shape (N,)
+        Measured beam sizes [m] at the screen.
+    scan_quad_index : int
+        0 -> 760, 1 -> 765, 2 -> 770.
+    k_fixed_downstream : dict, optional
+        {quad_index: k_value_or_array} for quads DOWNSTREAM of the scanned
+        one only. Values can be scalars or shape-(N,) arrays.
+    energy : float, optional
+        Beam energy [MeV] for normalized emittance.
 
-    # Specify element type
-    element_type = name.split('.')[1][0:3]
+    Returns
+    -------
+    dict with sigma11_quad, sigma12_quad, sigma22_quad (at the entrance of
+    the scanned quad), emittance, alpha, beta, gamma, and emittance_n if
+    energy given.
+    """
+    k_scan = np.asarray(k_scan, dtype=float)
+    sigma = np.asarray(sigma, dtype=float)
+    N = len(k_scan)
+    sigma_sq = sigma**2
 
-    # Set length and position
-    s_end = float(numbers[0])
-    L = float(numbers[1])
-    s_start = s_end - L
-    s_center = round((s_start + s_end)/2, 5)
-
-    # Adjust length if quad
-    if element_type == 'QFD' or element_type == 'QDD' or element_type == 'QFG' or element_type == 'QDG':
-        s_end = s_center + quad_length/2
-        s_start = s_center - quad_length/2
-        L = quad_length
-
-    # Round values to remove float errors
-    L = round(L, 4)
-    s_start = round(s_start, 4)
-    s_center = round(s_center, 5)
-    s_end = round(s_end, 4)
-
-    # Add drift from previous element
-    if previous_name is not None:
-        element_descriptions[previous_name + ' Drift'] = {
-            'element_type': 'Drift',
-            'L': round(s_start - element_descriptions[previous_name]['s_end'], 4),
-            's_start': element_descriptions[previous_name]['s_end'], 
-            's_center': round((element_descriptions[previous_name]['s_end'] + s_start)/2, 5), 
-            's_end': s_start,
-            'quad_index': None,
-        }
-
-    # Add current element
-    element_descriptions[name] = {
-        'element_type': element_type,
-        'L': L,
-        's_start': s_start, 
-        's_center': s_center,
-        's_end': s_end,
-        'quad_index': quad_index if text[1] == 'QUADRUPOLE' else None,
+    if k_fixed_downstream is None:
+        k_fixed_downstream = {}
+    k_fixed_arrays = {
+        idx: np.broadcast_to(np.asarray(v, dtype=float), (N,))
+        for idx, v in k_fixed_downstream.items()
     }
 
-    if element_type == 'QFD' or element_type == 'QDD' or element_type == 'QFG' or element_type == 'QDG':
-        quad_index += 1
+    design = np.zeros((N, 3))
+    for i in range(N):
+        k_fixed_i = {idx: arr[i] for idx, arr in k_fixed_arrays.items()}
+        M = _scan_quad_to_screen_matrix_thin(k_scan[i], k_fixed_i, scan_quad_index,
+                                              quad_L, quad_end_positions, screen_position)
+        M11, M12 = M[0, 0], M[0, 1]
+        design[i, 0] = M11**2
+        design[i, 1] = 2 * M11 * M12
+        design[i, 2] = M12**2
+
+    sol, residuals, rank, sv = np.linalg.lstsq(design, sigma_sq, rcond=None)
+    sigma11_quad, sigma12_quad, sigma22_quad = sol
+
+    # Geometric emittance: eps^2 = sigma11*sigma22 - sigma12^2
+    eps_sq = sigma11_quad * sigma22_quad - sigma12_quad**2
+    if eps_sq < 0:
+        raise ValueError(
+            "Negative value under sqrt for emittance "
+            f"(sigma11*sigma22 - sigma12^2 = {eps_sq:.3e}). "
+            "Check fit quality, sign convention of k, geometry, or the "
+            "downstream fixed-k values."
+        )
+    emittance = np.sqrt(eps_sq)
+
+    # Twiss parameters at the quad location
+    alpha = -sigma12_quad / emittance
+    beta = sigma11_quad / emittance
+    gamma = sigma22_quad / emittance
+
+    result = {
+        "sigma11_quad": sigma11_quad,
+        "sigma12_quad": sigma12_quad,
+        "sigma22_quad": sigma22_quad,
+        "emittance": emittance,
+        "alpha": alpha,
+        "beta": beta,
+        "gamma": gamma,
+    }
+
+    if energy is not None:
+        beta_rel = np.sqrt(1 - (0.511 / energy)**2)  # MeV/c^2 for electron rest mass
+        gamma_rel = energy / 0.511  # MeV/c^2 for electron
+        result["emittance_n"] = beta_rel * gamma_rel * emittance
+
+    return result
+
+
+
+
+def _quad_matrix(k, L):
+    if k > 0:
+        sqk = np.sqrt(k)
+        c, s = np.cos(sqk * L), np.sin(sqk * L)
+        return np.array([[c, s / sqk], [-sqk * s, c]])
+    elif k < 0:
+        sqk = np.sqrt(-k)
+        c, s = np.cosh(sqk * L), np.sinh(sqk * L)
+        return np.array([[c, s / sqk], [sqk * s, c]])
+    else:
+        return np.array([[1.0, L], [0.0, 1.0]])
+
+
+
+
+
+def _scan_quad_to_screen_matrix(k_scan_value, k_fixed_by_index, scan_quad_index,
+                                 quad_L=QUAD_LENGTH,
+                                 quad_end_positions=QUAD_END_POSITIONS,
+                                 screen_position=SCREEN_POSITION):
+    """
+    Transfer matrix from the ENTRANCE of the scanned quad to the screen,
+    for a single scan point. Only the scanned quad plus any downstream
+    fixed quads/drifts are used -- upstream quads are irrelevant.
+
+    k_fixed_by_index : dict, e.g. {1: k765_value, 2: k770_value} when
+        scan_quad_index == 0. Only downstream indices need to be present.
+    """
+    elements = _downstream_chain(scan_quad_index, quad_L, quad_end_positions, screen_position)
+    M = np.eye(2)
+    for kind, val in elements:
+        if kind == "scan_quad":
+            m = _quad_matrix(k_scan_value, quad_L)
+        elif kind == "fixed_quad":
+            m = _quad_matrix(k_fixed_by_index[val], quad_L)
+        else:  # drift
+            m = _drift_matrix(val)
+        M = m @ M
+
+    return M
+
+
+def quad_scan_emittance_thick(k_scan, sigma, scan_quad_index, k_fixed_downstream=None,
+                               quad_L=QUAD_LENGTH,
+                               quad_end_positions=QUAD_END_POSITIONS,
+                               screen_position=SCREEN_POSITION,
+                               energy=None):
+    """
+    Reconstruct the beam sigma matrix at the ENTRANCE of the scanned quad
+    (760, 765, or 770), correctly ignoring any quads upstream of it.
+
+    Parameters
+    ----------
+    k_scan : array-like, shape (N,)
+        Signed k [m^-2] of the scanned quad at each scan point.
+    sigma : array-like, shape (N,)
+        Measured beam sizes [m] at the screen.
+    scan_quad_index : int
+        0 -> 760, 1 -> 765, 2 -> 770.
+    k_fixed_downstream : dict, optional
+        {quad_index: k_value_or_array} for quads DOWNSTREAM of the scanned
+        one only. E.g. scanning 760 -> {1: k765, 2: k770}; scanning 765 ->
+        {2: k770}; scanning 770 -> {} or None (nothing needed).
+        Values can be scalars or shape-(N,) arrays.
+    energy : float, optional
+        Beam energy [MeV] for normalized emittance.
+
+    Returns
+    -------
+    dict with sigma11_quad, sigma12_quad, sigma22_quad (at the entrance of
+    the SCANNED quad -- not a fixed common reference), emittance, alpha,
+    beta, gamma, and emittance_n if energy given.
+    """
+    k_scan = np.asarray(k_scan, dtype=float)
+    sigma = np.asarray(sigma, dtype=float)
+    N = len(k_scan)
+    sigma_sq = sigma**2
+
+    if k_fixed_downstream is None:
+        k_fixed_downstream = {}
+    # broadcast any scalar fixed-k entries to length N for uniform indexing
+    k_fixed_arrays = {
+        idx: np.broadcast_to(np.asarray(v, dtype=float), (N,))
+        for idx, v in k_fixed_downstream.items()
+    }
+ 
+
+    design = np.zeros((N, 3))
+    for i in range(N):
+        k_fixed_i = {idx: arr[i] for idx, arr in k_fixed_arrays.items()} #create dict of index and strength of fixed quad
+        M = _scan_quad_to_screen_matrix(k_scan[i], k_fixed_i, scan_quad_index, 
+                                         quad_L, quad_end_positions, screen_position)#compute transfer matrix for each scanned 
+        M11, M12 = M[0, 0], M[0, 1]
+        design[i, 0] = M11**2
+        design[i, 1] = 2 * M11 * M12
+        design[i, 2] = M12**2
+
+    sol, residuals, rank, sv = np.linalg.lstsq(design, sigma_sq, rcond=None) #matrix inversion
+    sigma11_quad, sigma12_quad, sigma22_quad = sol
+
+    eps_sq = sigma11_quad * sigma22_quad - sigma12_quad**2
+    if eps_sq < 0:
+        raise ValueError(
+            "Negative value under sqrt for emittance "
+            f"(sigma11*sigma22 - sigma12^2 = {eps_sq:.3e}). "
+            "Check fit quality, sign convention of k, geometry, or the "
+            "downstream fixed-k values."
+        )
+    emittance = np.sqrt(eps_sq)
+
+    alpha = -sigma12_quad / emittance
+    beta = sigma11_quad / emittance
+    gamma = sigma22_quad / emittance
+
+    result = {
+        "sigma11_quad": sigma11_quad,
+        "sigma12_quad": sigma12_quad,
+        "sigma22_quad": sigma22_quad,
+        "emittance": emittance,
+        "beta": beta,
+        "alpha": alpha,
+        "gamma": gamma,
+    }
+
+    if energy is not None:
+        beta_rel = np.sqrt(1 - (0.511 / energy)**2)
+        gamma_rel = energy / 0.511
+        result["emittance_n"] = beta_rel * gamma_rel * emittance
+
+    return result
+
+def propagate_sigma_matrix(sigma_matrix, M):
+    """sigma_matrix at point A -> sigma_matrix at point B, given transfer M (A->B)."""
+    return M @ sigma_matrix @ M.T
+
+def backpropagate_to_reference(sigma_at_scan_quad, scan_quad_index, k_fixed_upstream,
+                                 quad_L=QUAD_LENGTH,
+                                 quad_end_positions=QUAD_END_POSITIONS):
+    """
+    Re-express a fitted sigma matrix (defined at the entrance of the scanned
+    quad) at the entrance of quad 760, using the KNOWN fixed k of whatever
+    quads sit between 760 and the scanned quad. No-op if scan_quad_index==0.
+    """
+    if scan_quad_index == 0:
+        return sigma_at_scan_quad
+
+    quad_end_positions = np.asarray(quad_end_positions, dtype=float)
+    quad_start_positions = quad_end_positions - quad_L
+
+    M = np.eye(2)
+    pos = quad_start_positions[0]
+    for j in range(scan_quad_index):
+        gap = quad_start_positions[j] - pos
+        M = _drift_matrix(gap) @ M
+        M = _quad_matrix(k_fixed_upstream[j], quad_L) @ M
+        pos = quad_end_positions[j]
+    M = _drift_matrix(quad_start_positions[scan_quad_index] - pos) @ M
+
+    Minv = np.linalg.inv(M)
+    return Minv @ sigma_at_scan_quad @ Minv.T
+
+
+def quad_scan_fit1( P_ref, s_x, s_y, current_setpoints, screen ="CA.BTV0875", reconstruction_point = 'CA.QFD0765'):
+
+    n = len(s_x)
+    results = {}
     
-    previous_name = name
 
-# Return a lattice object from start to end, using a current vector with the currents of each quad in order
-def get_lattice(start, end, P_ref, currents, include_end = True):
-    # beamline.select_beamline(beamline)
-    start_index = list(element_descriptions.keys()).index(start)
-    end_index = list(element_descriptions.keys()).index(end)
-    if include_end: end_index += 1
+    lattices = []
+    beta_x_matrix = np.empty((n, 3))
+    beta_y_matrix = np.empty((n, 3))
+    for i in range(n):
+        quad_currents = current_setpoints[i]
 
-    K = get_quad_K(currents, P_ref)
+        lattice = get_lattice(reconstruction_point, screen, P_ref, quad_currents)
+        # lattice = get_lattice(reconstruction_point, "CA.BTV0390", P_ref, quad_currents)
+
+        lattices.append(lattice)
+
+        # Transfer matricies from twiss to beta for each current
+        beta_x_matrix[i], beta_y_matrix[i] = np.array(lattice.get_twiss_matrix())[:, 0, :]
+
+    g = lorentz_factor(P_ref)
     
-    lattice = Lattice()
-    for element_description in list(element_descriptions.values())[start_index:end_index]:
-        element_type, L, _, _, _, quad_index = element_description.values()
-        if element_type == 'Drift':
-            element = Drift(L)
-            lattice.append_element(element)
+    # Get the beam size squared
+    sigma_sq = lambda beta_matrix, emitt, beta, alpha: emitt/g*beta_matrix@np.array([beta, alpha, (1+alpha**2)/beta])
 
-        elif element_type == 'QFD':
-            element = Quad(L, K[quad_index])
-            lattice.append_element(element)
-            
-        elif element_type == 'QDD':
-            element = Quad(L, -K[quad_index])
-            lattice.append_element(element)
-            
-    return lattice
+    try:
+        twiss_x_fit, twiss_x_cov, info_x = curve_fit(
+            f=sigma_sq,
+            xdata=beta_x_matrix, 
+            ydata=s_x**2, 
+            p0=(5, 10, 0), 
+            absolute_sigma=False, # Increases the estimated variance by a factor chi2/dof, i.e. increases the variance for a bad fit
+            full_output=True
+        )[0:3]
+
+        twiss_x, twiss_x_std = full_twiss(twiss_x_fit, twiss_x_cov)
+        chi2_x = np.sum(info_x['fvec']**2)
+    except (RuntimeError, ValueError):
+        # Fit did not converge
+        twiss_x = twiss_x_std = (np.nan, np.nan, np.nan, np.nan)
+        chi2_x = np.nan
+
+    
+    try:
+        twiss_y_fit, twiss_y_cov, info_y = curve_fit(
+            f=sigma_sq,
+            xdata=beta_y_matrix, 
+            ydata=s_y**2, 
+            p0=(5, 10, 0), 
+            absolute_sigma=False, # Increases the estimated variance by a factor chi2/dof, i.e. increases the variance for a bad fit
+            full_output=True
+        )[0:3]
+
+        twiss_y, twiss_y_std = full_twiss(twiss_y_fit, twiss_y_cov)
+        #twiss x and y return np.array([emitt_n, beta, alpha, gamma]), np.array([emitt_std, beta_std, alpha_std, gamma_std])
+        chi2_y = np.sum(info_y['fvec']**2)
+    except (RuntimeError, ValueError):
+        # Fit did not converge
+        twiss_y = twiss_y_std = (np.nan, np.nan, np.nan, np.nan)
+        chi2_y = np.nan
+
+    dof = n - 3
+    chi2_reduced = (chi2_x/dof, chi2_y/dof)
+
+    twiss = (*twiss_x, *twiss_y)
+    twiss_std = (*twiss_x_std, *twiss_y_std)
+
+    results[reconstruction_point] = {'twiss': twiss, 'twiss_std': twiss_std, 'chi2_reduced': chi2_reduced, 'lattices': lattices,}
+    return twiss_x,twiss_y, twiss_std, chi2_reduced, lattices

@@ -20,6 +20,7 @@ def get_Quad_K_from_I(I, Lquad, P_ref):
     return get_Quad_K(G_0, P_ref)
 
 
+
 def get_beamline(
     survey_filename="CLEAR_Beamline_Survey.txt",
     start = 'CA.ACS0270S_MECH',
@@ -27,7 +28,7 @@ def get_beamline(
     P_ref = 198,
     quad_currents = [0]*11,
     include_end=True,
-    Q=1
+    Q=-1
 ):
     """
     Build and return an RF_Track lattice from the CLEAR survey file.
@@ -47,7 +48,7 @@ def get_beamline(
     include_end : bool
         If True, includes the 'end' element.
     Q : float
-        Particle charge (default = 1).
+        Particle charge (default = -1, electrons).
 
     Returns
     -------
