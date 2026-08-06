@@ -16,7 +16,7 @@ import sys
 def get_bin_edges(dim):
     return np.linspace(0, dim.n_bins * dim.bin_width, dim.n_bins + 1)
 
-dir = '/Users/sabrinawang/Desktop/DPhil_Project/'
+dir = os.path.expanduser('~/DPhil_Project/')
 mass = RF_Track.electronmass    # particle mass in MeV/c^2
 population = 10 * RF_Track.nC               # number of particles per bunch
 Q = -1                          # particle charge in e units
@@ -50,7 +50,7 @@ s1_l, s2_width, s2_depth =  0.1, 1.4,0.8
 # s1_l, s2_width, s2_depth = 0.1, 1.6,2.43
 dose_depth = 256 #robot depth -25
  #mm
-setup = partrec_gaussian_optimiser_utils()
+setup = partrec_gaussian_optimiser_utils(file_directory=dir)
 #position here always defined form the front face
 setup.export_phsp(R, dir + RFT_name + '.phsp')
 
