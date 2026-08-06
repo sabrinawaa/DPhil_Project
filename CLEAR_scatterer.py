@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import RF_Track
 import csv
-from YAG_RCF_analysis import *
+# from YAG_RCF_analysis import *
 from topas2numpy import BinnedResult
 import os
 from CLEAR_line import *
