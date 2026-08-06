@@ -28,8 +28,8 @@ class partrec_gaussian_optimiser_utils():
         no_of_threads=8,
         input_filename="topas_main.txt",
         file_directory = '/Users/sabrinawang/Desktop/DPhil_Project/',
-        count_log_interval = 10000
-        topas_dir = "/Applications/topas"
+        count_log_interval = 10000,
+        topas_dir = "/Applications/"
     ):
         # write new topas script
         file = open(file_directory + input_filename, "w")
@@ -511,38 +511,38 @@ class partrec_gaussian_optimiser_utils():
         file = self.file
         E = R[:, 4] #changed from 5 to 4
         N_particles_str = str(len(E))
-        file = open(path_to_header_file, "w")
-        file.write("TOPAS ASCII Phase Space\n")
-        file.write("\n")
-        file.write("Number of Original Histories: " + N_particles_str + "\n")
-        file.write(
-            "Number of Original Histories that Reached Phase Space: "
-            + N_particles_str
-            + "\n"
-        )
-        file.write("Number of Scored Particles: " + N_particles_str + "\n")
-        file.write("\n")
-        file.write("Columns of data are as follows:\n")
-        file.write(" 1: Position X [cm]\n")
-        file.write(" 2: Position Y [cm]\n")
-        file.write(" 3: Position Z [cm]\n")
-        file.write(" 4: Direction Cosine X\n")
-        file.write(" 5: Direction Cosine Y\n")
-        file.write(" 6: Energy [MeV]\n")
-        file.write(" 7: Weight\n")
-        file.write(" 8: Particle Type (in PDG Format)\n")
-        file.write(
-            " 9: Flag to tell if Third Direction Cosine is Negative (1 means true)\n"
-        )
-        file.write(
-            "10: Flag to tell if this is the First Scored Particle from this History (1 means true)\n"
-        )
-        file.write("\n")
-        file.write("Number of e-: " + N_particles_str + "\n")
-        file.write("\n")
-        file.write("Minimum Kinetic Energy of e-: " + str(min(E)) + " MeV\n")
-        file.write("\n")
-        file.write("Maximum Kinetic Energy of e-: " + str(max(E)) + " MeV\n")
+        with open(path_to_header_file, "w") as file:
+            file.write("TOPAS ASCII Phase Space\n")
+            file.write("\n")
+            file.write("Number of Original Histories: " + N_particles_str + "\n")
+            file.write(
+                "Number of Original Histories that Reached Phase Space: "
+                + N_particles_str
+                + "\n"
+            )
+            file.write("Number of Scored Particles: " + N_particles_str + "\n")
+            file.write("\n")
+            file.write("Columns of data are as follows:\n")
+            file.write(" 1: Position X [cm]\n")
+            file.write(" 2: Position Y [cm]\n")
+            file.write(" 3: Position Z [cm]\n")
+            file.write(" 4: Direction Cosine X\n")
+            file.write(" 5: Direction Cosine Y\n")
+            file.write(" 6: Energy [MeV]\n")
+            file.write(" 7: Weight\n")
+            file.write(" 8: Particle Type (in PDG Format)\n")
+            file.write(
+                " 9: Flag to tell if Third Direction Cosine is Negative (1 means true)\n"
+            )
+            file.write(
+                "10: Flag to tell if this is the First Scored Particle from this History (1 means true)\n"
+            )
+            file.write("\n")
+            file.write("Number of e-: " + N_particles_str + "\n")
+            file.write("\n")
+            file.write("Minimum Kinetic Energy of e-: " + str(min(E)) + " MeV\n")
+            file.write("\n")
+            file.write("Maximum Kinetic Energy of e-: " + str(max(E)) + " MeV\n")
 
     # function adds
     # relevant lines in TOPAS to import beam from phsp and header files
@@ -575,12 +575,12 @@ class partrec_gaussian_optimiser_utils():
         # Topas script complete, close file
         file.close()
         # set up environment for topas
-        topas_bin = os.path.join(self.topas_dir, "bin", "topas")
+        topas_bin = os.path.join(self.topas_dir, "topas","bin", "topas")
         script_path = os.path.join(os.path.expanduser(self.file_directory), topas_filename)
 
         os.system(
         f'export TOPAS_G4_DATA_DIR="{os.path.join(self.topas_dir, "G4Data")}" && '
-        f'export QT_QPA_PLATFORM_PLUGIN_PATH="{os.path.join(self.topas_dir, "Frameworks")}" && '
+        f'export QT_QPA_PLATFORM_PLUGIN_PATH="{os.path.join(self.topas_dir,"topas","Frameworks")}" && '
         f'"{topas_bin}" "{script_path}"'
     )
 
