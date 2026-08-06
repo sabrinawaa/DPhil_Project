@@ -27,7 +27,7 @@ def main(args):
     population = 10 * RF_Track.nC               # number of particles per bunch
     Q = -1                          # particle charge in e units
     P_ref = 197.3
-    n_particles = int(1e4)
+    n_particles = int(1e5)
     RFT_name = "CLEAR_line_" + str(run_no)
     output_filename = "CLEAR_dual_scatterer_0515_small_YAG_875_" + str(run_no)
     profile = "dose" # "dose" or "intensity"

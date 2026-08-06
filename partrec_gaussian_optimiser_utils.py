@@ -25,7 +25,7 @@ class partrec_gaussian_optimiser_utils():
         self,
         world_material="Vacuum",
         home_directory="/Applications/",
-        no_of_threads=8,
+        no_of_threads=0,
         input_filename="topas_main.txt",
         file_directory = '/Users/sabrinawang/Desktop/DPhil_Project/',
         count_log_interval = 10000,
