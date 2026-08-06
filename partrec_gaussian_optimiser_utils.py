@@ -29,6 +29,7 @@ class partrec_gaussian_optimiser_utils():
         input_filename="topas_main.txt",
         file_directory = '/Users/sabrinawang/Desktop/DPhil_Project/',
         count_log_interval = 10000
+        topas_dir = "/Applications/topas"
     ):
         # write new topas script
         file = open(file_directory + input_filename, "w")
@@ -95,6 +96,7 @@ class partrec_gaussian_optimiser_utils():
 
         self.home_directory = home_directory
         self.file_directory = file_directory
+        self.topas_dir = topas_dir
         # set filename and file object as class attributes to retrieve later
         self.input_filename = input_filename
         self.file = file
@@ -561,7 +563,7 @@ class partrec_gaussian_optimiser_utils():
 
         
 
-    def run_topas(self, topas_filename=lambda self: self.input_filename, view_setup=False):
+    def run_topas(self, topas_filename=lambda self: self.input_filename, view_setup=False,):
         if callable(topas_filename):
             topas_filename = topas_filename(self) 
 
@@ -573,11 +575,12 @@ class partrec_gaussian_optimiser_utils():
         # Topas script complete, close file
         file.close()
         # set up environment for topas
+        topas_bin = os.path.join(self.topas_dir, "bin", "topas")
+        script_path = os.path.join(os.path.expanduser(self.file_directory), topas_filename)
+
         os.system(
-            "export TOPAS_G4_DATA_DIR=/Applications/G4Data && "
-            "export QT_QPA_PLATFORM_PLUGIN_PATH=/Applications/topas/Frameworks && "
-            "/Applications/topas/bin/topas "
-            + self.file_directory
-            + topas_filename
-        )
+        f'export TOPAS_G4_DATA_DIR="{os.path.join(self.topas_dir, "G4Data")}" && '
+        f'export QT_QPA_PLATFORM_PLUGIN_PATH="{os.path.join(self.topas_dir, "Frameworks")}" && '
+        f'"{topas_bin}" "{script_path}"'
+    )
 
