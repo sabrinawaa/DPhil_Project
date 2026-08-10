@@ -13,12 +13,7 @@ from partrec_gaussian_optimiser_utils import partrec_gaussian_optimiser_utils
 # from RF_track_utils import *
 import sys
 
-def get_bin_edges(dim):
-    return np.linspace(0, dim.n_bins * dim.bin_width, dim.n_bins + 1)
-
-
 def main(args):
-  
     run_no = int(args[0])
     
     dir = os.path.expanduser('~/DPhil_Project/')
@@ -31,38 +26,37 @@ def main(args):
     mass = RF_Track.electronmass    # particle mass in MeV/c^2
     population = 10 * RF_Track.nC               # number of particles per bunch
     Q = -1                          # particle charge in e units
-    P_ref = 197.3
+    P_ref = 199.2
     n_particles = int(5e4)
     RFT_name = "CLEAR_1305" + str(run_no)
-    output_filename = "CLEAR_dual_scatterer_0515_small_YAG_875_" + str(run_no)
+    output_filename = "CLEAR_dual_scatterer_0513_large_YAG_875_" + str(run_no)
     profile = "dose" # "dose" or "intensity"
 
     start = 'CA.QFD0350' #'CA.ACS0270S_MECH'
     end = 'CA.DHJ0840' #'CA.STLINE$END'
 
     # Twiss parameters
-    # They are the ones at the starting point of your constructed lattice
-
     Twiss = RF_Track.Bunch6d_twiss()
-    Twiss.beta_x = 0.65        # m
-    Twiss.beta_y = 30.20    # m
-    Twiss.alpha_x = -0.20
-    Twiss.alpha_y = -1.87
-    Twiss.emitt_x = 66.26     # mm.mrad normalised emittance
-    Twiss.emitt_y = 86.26
+#    twiss 13_05 from 875 quad scan at 760
+    Twiss.beta_x = 9.34        # m
+    Twiss.beta_y = 1.45    # m
+    Twiss.alpha_x = 1.00
+    Twiss.alpha_y = 0.78
+    Twiss.emitt_x = 27.53    # mm.mrad normalised emittance
+    Twiss.emitt_y = 38.70    # mm.mrad
+    CLEAR_lattice = get_beamline(dir + "CLEAR_Beamline_Survey.txt", "CA.QFD0760", end, P_ref, np.array([11, 32, 22, 19, 39.4, 18,54.5, 94.3, 4,0,0]))
 
-    CLEAR_lattice = get_beamline(dir + "CLEAR_Beamline_Survey.txt", "CA.QFD0760", end, P_ref, np.array([11, 32, 22, 19, 32, 18, 0, 67.5, 100, 0, 0]))
     B0 = RF_Track.Bunch6d(mass, population, Q, P_ref, Twiss, n_particles)  
     B1 = CLEAR_lattice.track(B0)  
     R = B1.get_phase_space('%x %xp %y %yp %E %z')
 
     s1_pos = 84
-    s1_l, s2_width, s2_depth =  0.1, 1.4,0.8
-    # s1_l, s2_width, s2_depth = 0.1, 1.6,2.43
+    # s1_l, s2_width, s2_depth =  0.1, 1.4,0.8
+    s1_l, s2_width, s2_depth = 0.1, 1.6,2.43
     dose_depth = 256 #robot depth -25
     #mm
     try:
-        setup = partrec_gaussian_optimiser_utils(file_directory=scratch_dir,input_filename=f'topas_main_{run_no}.txt',topas_dir ='/home/sabrinawang/Applications/',no_of_threads=1)
+        setup = partrec_gaussian_optimiser_utils(file_directory=scratch_dir,input_filename=f'topas_main1_{run_no}.txt',topas_dir ='/home/sabrinawang/Applications/',no_of_threads=1)
         #position here always defined form the front face
         setup.export_phsp(R, scratch_dir + RFT_name + '.phsp')
 
@@ -74,11 +68,11 @@ def main(args):
         setup.add_flat_scatterer(s1_l, 'Aluminum', s1_pos)
                         # define gaussian scatterer (here with 22mm depth, 10mm radius, composed of 100 slices, situated 100mm downstream (standard convention) of first scatterer, )
                         
-        # s2_thickness = [0.688, 0.778, 0.581, 0.386]
-        # s2_radii = [0.4, 0.8, 1.2, 1.6] #large
+        s2_thickness = [0.688, 0.778, 0.581, 0.386]
+        s2_radii = [0.4, 0.8, 1.2, 1.6] #large
 
-        s2_thickness = [0.08719553, 0.18061171, 0.26891643, 0.26327633]
-        s2_radii = [1.4 , 1.05, 0.7 , 0.35] #small
+        # s2_thickness = [0.08719553, 0.18061171, 0.26891643, 0.26327633]
+        # s2_radii = [1.4 , 1.05, 0.7 , 0.35] #small
 
         for i in range(len(s2_thickness)):
             sname = 'S2_slice_'+str(i)
@@ -108,9 +102,10 @@ def main(args):
     
     finally:
         for p in (
-            scratch_dir + f"topas_main_{run_no}.txt",
-            scratch_dir + f"CLEAR_line_{run_no}.header",
-            scratch_dir + f"CLEAR_line_{run_no}.phsp",
+            scratch_dir + f"topas_main1_{run_no}.txt",
+            scratch_dir + RFT_name + '.phsp',
+            scratch_dir + RFT_name + '.header'
+
         ):
             try:
                 os.remove(p)

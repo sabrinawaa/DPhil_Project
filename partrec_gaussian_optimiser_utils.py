@@ -8,6 +8,7 @@ Created on Wed Mar 29 09:51:43 2023
 import numpy as np
 import pandas as pd
 import os
+import time
 from scipy.stats import norm
 import matplotlib.pyplot as plt
 from astropy.table import Table
@@ -560,12 +561,30 @@ class partrec_gaussian_optimiser_utils():
         file.write('s:So/acc_source/Component = "World"\n')
         file.write('s:So/acc_source/PhaseSpaceFileName = "'+infile+'"\n')
         file.write('d:So/acc_source/TransZ = -'+str(position)+' mm\n')
+        self.phsp_infile = infile
 
-        
+    def _wait_for_file_ready(self, path, timeout=30.0, poll_interval=0.2, stable_checks=3):
+        # Guards against shared/NFS filesystems where a just-written file isn't
+        # immediately visible or fully flushed to a process opening it right after.
+        start = time.time()
+        while not os.path.exists(path):
+            if time.time() - start > timeout:
+                raise FileNotFoundError(f"Timed out waiting for {path} to appear")
+            time.sleep(poll_interval)
+
+        stable_count = 0
+        last_size = -1
+        while stable_count < stable_checks:
+            size = os.path.getsize(path)
+            stable_count = stable_count + 1 if size == last_size and size > 0 else 0
+            last_size = size
+            if time.time() - start > timeout:
+                raise TimeoutError(f"Timed out waiting for {path} to stabilize (last size {size})")
+            time.sleep(poll_interval)
 
     def run_topas(self, topas_filename=lambda self: self.input_filename, view_setup=False,):
         if callable(topas_filename):
-            topas_filename = topas_filename(self) 
+            topas_filename = topas_filename(self)
 
         file = self.file
         if view_setup is True:
@@ -574,6 +593,11 @@ class partrec_gaussian_optimiser_utils():
 
         # Topas script complete, close file
         file.close()
+
+        if getattr(self, "phsp_infile", None):
+            self._wait_for_file_ready(self.phsp_infile + ".phsp")
+            self._wait_for_file_ready(self.phsp_infile + ".header")
+
         # set up environment for topas
         topas_bin = os.path.join(self.topas_dir, "topas","bin", "topas")
         script_path = os.path.join(os.path.expanduser(self.file_directory), topas_filename)
