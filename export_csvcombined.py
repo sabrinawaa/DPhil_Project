@@ -2,7 +2,7 @@ from pathlib import Path
 import re
 import pandas as pd
 
-folder = Path("CLEAR_sim/1505_small/")  # change if your CSVs are in another folder
+folder = Path("CLEAR_sim/1305_large_col/")  # change if your CSVs are in another folder
 pattern = re.compile(r"^(.*)_(\d+)\.csv$")
 
 col_names = ["x_bin", "y_bin", "z_bin", "dose"]

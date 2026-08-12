@@ -20,7 +20,11 @@ def get_bin_edges(dim):
 def main(args):
   
     run_no = int(args[0])
-    
+
+    # each condor job otherwise samples the same beam by default (RF_Track's
+    # RNG seed is fixed, not time-based), so independent jobs must be seeded
+    RF_Track.rng_set_seed(run_no)
+
     dir = os.path.expanduser('~/DPhil_Project/')
     # per-job private scratch dir (falls back to dir for interactive/local runs) so
     # topas_main/.phsp/.header files from concurrent condor jobs never collide
@@ -62,7 +66,8 @@ def main(args):
     dose_depth = 256 #robot depth -25
     #mm
     try:
-        setup = partrec_gaussian_optimiser_utils(file_directory=scratch_dir,input_filename=f'topas_main_{run_no}.txt',topas_dir ='/home/sabrinawang/Applications/',no_of_threads=1)
+        setup = partrec_gaussian_optimiser_utils(file_directory=scratch_dir,input_filename=f'topas_main_{run_no}.txt',topas_dir ='/home/sabrinawang/Applications/',no_of_threads=1
+                                                 )
         #position here always defined form the front face
         setup.export_phsp(R, scratch_dir + RFT_name + '.phsp')
 
@@ -109,8 +114,8 @@ def main(args):
     finally:
         for p in (
             scratch_dir + f"topas_main_{run_no}.txt",
-            scratch_dir + f"CLEAR_line_{run_no}.header",
-            scratch_dir + f"CLEAR_line_{run_no}.phsp",
+            scratch_dir + RFT_name + '.header',
+            scratch_dir + RFT_name + '.phsp',
         ):
             try:
                 os.remove(p)

@@ -15,7 +15,11 @@ import sys
 
 def main(args):
     run_no = int(args[0])
-    
+
+    # each condor job otherwise samples the same beam by default (RF_Track's
+    # RNG seed is fixed, not time-based), so independent jobs must be seeded
+    RF_Track.rng_set_seed(run_no)
+
     dir = os.path.expanduser('~/DPhil_Project/')
     # per-job private scratch dir (falls back to dir for interactive/local runs) so
     # topas_main/.phsp/.header files from concurrent condor jobs never collide
