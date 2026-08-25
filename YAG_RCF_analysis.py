@@ -54,6 +54,88 @@ def beam_area_mask(img, fraction, cx,cy):
 
 
 
+def get_dose_slices(dosemap, x, y, strip_width=10, cx=None, cy=None, p0=None, p00=None):
+    """
+    Centre + extract the same X/Y slices and 1D fits that plot_dose1 plots,
+    without building a figure. Used to overlay slices from two different
+    dosemaps (e.g. film vs simulation) on the same axes.
+
+    Returns a dict with the recentred coordinate arrays, the raw slice
+    profiles, and the fitted curve parameters (SuperGaussian always;
+    2-Gaussian only when P < 2.6, as in plot_dose1).
+    """
+    h, w = dosemap.shape
+
+    if cx is not None and cy is not None:
+        cx_idx, cy_idx = cx, cy
+    else:
+        cx_idx, cy_idx = beam_centroid(dosemap)
+    x, y = x - x[cx_idx], y - y[cy_idx]
+
+    xx, yy = np.meshgrid(x, y)
+    X = np.vstack((xx.ravel(), yy.ravel()))
+    Z = dosemap.ravel()
+    dx = np.mean(np.diff(x))
+    dy = np.mean(np.diff(y))
+
+    A0 = float(np.nanmax(dosemap) - np.nanmin(dosemap))
+    c0 = float(np.nanmin(dosemap))
+    p0_2d = [A0, 0.0, 0.0, 5.0, 5.0, 2.0, 2.0, 0.0, 0.0, c0]
+    lower = [0.0, -np.inf, -np.inf, 1e-6, 1e-6, 1.0, 1.0, -np.inf, -np.inf, -np.inf]
+    upper = [np.inf, np.inf, np.inf, np.inf, np.inf, 20.0, 20.0, np.inf, np.inf, np.inf]
+    params_2d, _ = curve_fit(supergaussian2D_skewed, X, Z, p0=p0_2d, bounds=(lower, upper))
+    A, x0, y0, sig_x2d, sig_y2d, P_x2d, P_y2d, mx, my, c = params_2d
+
+    if cx is not None and cy is not None:
+        new_x, new_y = x, y
+        new_cx_idx, new_cy_idx = cx_idx, cy_idx
+    else:
+        new_x, new_y = x - x0, y - y0
+        new_cx_idx = int(round(cx_idx + x0 / dx))
+        new_cy_idx = int(round(cy_idx + y0 / dy))
+
+    row0 = max(0, new_cy_idx - strip_width // 2)
+    row1 = min(h, new_cy_idx + strip_width // 2)
+    col0 = max(0, new_cx_idx - strip_width // 2)
+    col1 = min(w, new_cx_idx + strip_width // 2)
+
+    slice_row = np.mean(dosemap[row0:row1, :], axis=0)
+    slice_col = np.mean(dosemap[:, col0:col1], axis=1)
+
+    lower = [0, -np.inf, 1e-6, 0.0, -np.inf, -np.inf]
+    upper = [np.inf, np.inf, 40, np.inf, np.inf, np.inf]
+    if p0 is None:
+        p0 = [A, 0, abs(sig_x2d), P_x2d, 0, c]
+    params_x, _ = curve_fit(supergaussian1D_skewed, new_x, slice_row, p0=p0, bounds=(lower, upper))
+    params_y, _ = curve_fit(supergaussian1D_skewed, new_y, slice_col, p0=p0, bounds=(lower, upper))
+    P_x, P_y = params_x[3], params_y[3]
+
+    if p00 is None:
+        p00 = [np.max(slice_row), np.std(slice_row) * 1.1, np.std(slice_row), 0, 0, 0]
+    lower_2g = [0.0, 0.0, 1e-6, -np.inf, -np.inf, -np.inf]
+    upper_2g = [np.inf, 30.0, 30.0, np.inf, np.inf, np.inf]
+
+    params_xx = params_yy = None
+    if P_x < 2.6:
+        try:
+            params_xx, _ = curve_fit(sum_2gaussians_skewed, new_x, slice_row, p0=p00, bounds=(lower_2g, upper_2g), maxfev=20000)
+        except Exception as e:
+            print(f"Failed to fit sum of 2 Gaussians (x): {e}")
+    if P_y < 2.6:
+        try:
+            params_yy, _ = curve_fit(sum_2gaussians_skewed, new_y, slice_col, p0=p00, bounds=(lower_2g, upper_2g), maxfev=20000)
+        except Exception as e:
+            print(f"Failed to fit sum of 2 Gaussians (y): {e}")
+
+    return {
+        "new_x": new_x, "new_y": new_y,
+        "slice_row": slice_row, "slice_col": slice_col,
+        "dx": dx, "dy": dy,
+        "params_x": params_x, "params_y": params_y,
+        "params_xx": params_xx, "params_yy": params_yy,
+    }
+
+
 def plot_dose1(dosemap, im_type, x, y,strip_width=10, cx = None, cy = None,p0=None, p00 = None):
     """
     dosemap: 2D array, dosemap[row, col] with row <-> y, col <-> x
@@ -147,8 +229,8 @@ def plot_dose1(dosemap, im_type, x, y,strip_width=10, cx = None, cy = None,p0=No
     if p00 is None:
         p00 = [np.max(slice_row), np.std(slice_row)*1.1, np.std(slice_row), 0, 0, 0]
 
-    plot_2g_x = P_x < 2.1
-    plot_2g_y = P_y < 2.1
+    plot_2g_x = P_x < 2.6
+    plot_2g_y = P_y < 2.6
 
     if plot_2g_x:
         try:

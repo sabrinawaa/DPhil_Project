@@ -318,7 +318,7 @@ def backpropagate_to_reference(sigma_at_scan_quad, scan_quad_index, k_fixed_upst
     return Minv @ sigma_at_scan_quad @ Minv.T
 
 
-def quad_scan_fit1( P_ref, s_x, s_y, current_setpoints, screen ="CA.BTV0875", reconstruction_point = 'CA.QFD0765'):
+def quad_scan_fit1( P_ref, s_x, s_y, current_setpoints, screen ="CA.BTV0875", reconstruction_point = 'CA.QFD0760'):
 
     n = len(s_x)
     results = {}

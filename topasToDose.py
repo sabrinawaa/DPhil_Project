@@ -18,8 +18,8 @@ def getDosemap(filePath, simParticles, dose_depth, outputFileName, acChargenC=66
     x,y = doseMap.dimensions[0].get_bin_centers(), doseMap.dimensions[1].get_bin_centers() #converts bins to cm
     x,y = x * 10, y * 10  # Convert from cm to mm
     eCharge=1.60217663e-19
-    trueChargenC=(simParticles * eCharge)*1e9 #charge in simulation in nC
-    scalingFactor=acChargenC/trueChargenC #number of particles simulated vs number of particles in actual beam
+    simChargenC=(simParticles * eCharge)*1e9 #charge in simulation in nC
+    scalingFactor=acChargenC/simChargenC #number of particles simulated vs number of particles in actual beam
     scaledDosemap=np.rot90(rawDosemap * scalingFactor)
 
     if plot:

@@ -46,6 +46,9 @@ class partrec_gaussian_optimiser_utils():
         # set world as vacuum for simplicity
         file.write('s:Ge/World/Material = "' + world_material + '"\n \n')
 
+        file.write('s:Ph/Default/Type = "Geant4_Modular"\n')
+        file.write('sv:Ph/Default/Modules = 1 "g4em-standard_opt4"\n')
+
         file.write('sv:Ma/Steel316/Components = 9 "Iron" "Chromium" "Nickel" "Molybdenum" "Manganese" "Silicon" "Phosphorus" "Carbon" "Sulfur" \n')
         file.write('uv:Ma/Steel316/Fractions = 9 0.644 0.18 0.12 0.025 0.02 0.01 0.00045 0.0003 0.0003\n')
         file.write('d:Ma/Steel316/Density = 8.03 g/cm3\n')
