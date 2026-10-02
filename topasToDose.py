@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 # acChargenC is the simulated total charge to create an appropriate scaling factor (effectively arbitrary, 10nC is reasonable for now)
 
 
-def getDosemap(filePath, simParticles, dose_depth, outputFileName, acChargenC=66.7, plot=False, z_index=None):
+def getDosemap(filePath, simParticles, dose_depth, outputFileName, acChargenC=10, plot=False, z_index=None):
 
     doseMap = BinnedResult(filePath)
     raw = doseMap.data['Sum']

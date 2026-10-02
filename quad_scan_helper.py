@@ -386,4 +386,5 @@ def quad_scan_fit1( P_ref, s_x, s_y, current_setpoints, screen ="CA.BTV0875", re
     twiss_std = (*twiss_x_std, *twiss_y_std)
 
     results[reconstruction_point] = {'twiss': twiss, 'twiss_std': twiss_std, 'chi2_reduced': chi2_reduced, 'lattices': lattices,}
+    # return results
     return twiss_x,twiss_y, twiss_std, chi2_reduced, lattices

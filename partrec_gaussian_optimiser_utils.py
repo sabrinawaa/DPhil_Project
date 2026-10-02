@@ -96,6 +96,15 @@ class partrec_gaussian_optimiser_utils():
         file.write('d:Ma/Kapton/MeanExcitationEnergy = 79.6 eV\n')
         file.write('s:Ma/Kapton/DefaultColor = "orange"\n')
 
+        file.write('sv:Ma/EBT4/Components = 5 "Hydrogen" "Lithium" "Carbon" "Oxygen" "Aluminum"\n')
+        file.write('uv:Ma/EBT4/Fractions = 5 0.088 0.006 0.511 0.328 0.067\n')
+        file.write('d:Ma/EBT4/Density = 1.20 g/cm3\n')
+        file.write('s:Ma/EBT4/DefaultColor = "Yellow"\n')
+
+        file.write('sv:Ma/EBT4Polyester/Components = 3 "Hydrogen" "Carbon" "Oxygen"\n')
+        file.write('uv:Ma/EBT4Polyester/Fractions = 3 0.042 0.625 0.333\n')
+        file.write('d:Ma/EBT4Polyester/Density = 1.38 g/cm3\n')
+
 
 
         self.home_directory = home_directory
@@ -357,7 +366,7 @@ class partrec_gaussian_optimiser_utils():
         # set position of collimator at appropriate distance from beam source
 
 
-    def add_patient(self, position,parent = "World"):
+    def add_patient(self, position,parent = "World", width = 1000):
         file = self.file
         # define scorer surface
         file.write('s:Ge/ScorerSurface/Type="TsBox"\n')
@@ -365,9 +374,8 @@ class partrec_gaussian_optimiser_utils():
         # set arbitrary material - vacuum for simplicity
         file.write('s:Ge/ScorerSurface/Material="G4_WATER"\n')
 
-        # set arbitrarily large surface area of scorer
-        file.write("d:Ge/ScorerSurface/HLX = 1 m\n") 
-        file.write("d:Ge/ScorerSurface/HLY = 1 m\n") 
+        file.write("d:Ge/ScorerSurface/HLX =" +  str(width/2000) +" m\n") #half width here in m
+        file.write("d:Ge/ScorerSurface/HLY = " + str(width/2000) +" m\n") 
         # set small thickness for precision
         file.write("d:Ge/ScorerSurface/HLZ = 0.01 mm\n")    
         # set at appropriate distance for consistency between variables
@@ -436,6 +444,73 @@ class partrec_gaussian_optimiser_utils():
 
         file.write('b:Ph/ListProcesses = "False"\n')
         file.write('b:Ge/CheckForUnusedComponents = "False"\n')
+
+    def add_airtank_bins(self, position, depth, x_bins, y_bins, z_bins, output_filename, width=300, parent = "World"):
+        file = self.file
+        file.write('s:Ge/Tank/Type="TsBox"\n')
+        file.write('s:Ge/Tank/Parent="' + parent + '"\n')
+        # set arbitrary material - vacuum for simplicity
+        file.write('s:Ge/Tank/Material="Air"\n')
+        # set arbitrarily large surface area of scorer
+        file.write("d:Ge/Tank/HLX =" +  str(width/2000) +" m\n") #half width here in m
+        file.write("d:Ge/Tank/HLY = " + str(width/2000) +" m\n") 
+        file.write("d:Ge/Tank/HLZ = " + str(depth / 2) + " mm\n")
+        file.write("d:Ge/Tank/TransZ=-" +
+                   str(position+depth/2) + " mm\n")
+        file.write("i:Ge/Tank/XBins = "+ str(x_bins) + "\n")
+        file.write("i:Ge/Tank/YBins = "+ str(y_bins) + "\n")
+        file.write("i:Ge/Tank/ZBins = "+ str(z_bins) + "\n")
+        file.write('s:Sc/DoseAtTank/Quantity = "DoseToMedium" \n')
+        file.write('s:Sc/DoseAtTank/Component = "Tank"\n')
+        file.write('s:Sc/DoseAtTank/Surface = "Tank/ZPlusSurface"\n')
+        # file.write('s:Sc/DoseAtTank/OnlyIncludeParticlesOfGeneration = "Primary"\n')
+        # output as csv file
+        file.write('s:Sc/DoseAtTank/OutputFile = "DoseAtTank' + str(depth) + '_'+ output_filename+'"\n')
+        file.write('s:Sc/DoseAtTank/OutputType = "CSV"\n')
+        file.write('s:Sc/DoseAtTank/IfOutputFileAlreadyExists = "Overwrite"\n')
+        # reduce terminal output to improve RunTime and reduce clutter
+        file.write('b:Sc/DoseAtTank/OutputToConsole = "False"\n')
+        # set various checks to 0 to decrease RunTime
+        file.write('b:Ge/CheckForOverlaps = "False" \n')
+        file.write('b:Ge/QuitIfOverlapDetected = "False"\n')
+
+        file.write('b:Ph/ListProcesses = "False"\n')
+        file.write('b:Ge/CheckForUnusedComponents = "False"\n')
+
+    def add_EBT4(self, rel_position, output_filename, x_bins, y_bins, z_bins, parent="Tank"):
+        self.file.write(f's:Ge/EBT4_{rel_position}_PETFront/Type = "TsBox"\n')
+        self.file.write(f's:Ge/EBT4_{rel_position}_PETFront/Parent = "{parent}"\n')
+        self.file.write(f's:Ge/EBT4_{rel_position}_PETFront/Material = "EBT4Polyester"\n')
+        self.file.write(f'd:Ge/EBT4_{rel_position}_PETFront/HLX = 17.5 mm\n')
+        self.file.write(f'd:Ge/EBT4_{rel_position}_PETFront/HLY = 20.0 mm\n')
+        self.file.write(f'd:Ge/EBT4_{rel_position}_PETFront/HLZ = 0.0625 mm\n')
+        self.file.write(f'd:Ge/EBT4_{rel_position}_PETFront/TransZ = {150.0 - rel_position - 0.0625} mm\n')
+
+        self.file.write(f's:Ge/EBT4_{rel_position}_Active/Type = "TsBox"\n')
+        self.file.write(f's:Ge/EBT4_{rel_position}_Active/Parent = "{parent}"\n')
+        self.file.write(f's:Ge/EBT4_{rel_position}_Active/Material = "EBT4"\n')
+        self.file.write(f'd:Ge/EBT4_{rel_position}_Active/HLX = 17.5 mm\n')
+        self.file.write(f'd:Ge/EBT4_{rel_position}_Active/HLY = 20.0 mm\n')
+        self.file.write(f'd:Ge/EBT4_{rel_position}_Active/HLZ = 0.014 mm\n')
+        self.file.write(f'd:Ge/EBT4_{rel_position}_Active/TransZ = {150.0 - rel_position - 0.139} mm\n')
+        self.file.write(f"i:Ge/EBT4_{rel_position}_Active/XBins = " + str(x_bins) + "\n")
+        self.file.write(f"i:Ge/EBT4_{rel_position}_Active/YBins = " + str(y_bins) + "\n")
+        self.file.write(f"i:Ge/EBT4_{rel_position}_Active/ZBins = " + str(z_bins) + "\n")
+
+        self.file.write(f's:Ge/EBT4_{rel_position}_PETBack/Type = "TsBox"\n')
+        self.file.write(f's:Ge/EBT4_{rel_position}_PETBack/Parent = "{parent}"\n')
+        self.file.write(f's:Ge/EBT4_{rel_position}_PETBack/Material = "EBT4Polyester"\n')
+        self.file.write(f'd:Ge/EBT4_{rel_position}_PETBack/HLX = 17.5 mm\n')
+        self.file.write(f'd:Ge/EBT4_{rel_position}_PETBack/HLY = 20.0 mm\n')
+        self.file.write(f'd:Ge/EBT4_{rel_position}_PETBack/HLZ = 0.0625 mm\n')
+        self.file.write(f'd:Ge/EBT4_{rel_position}_PETBack/TransZ = {150.0 - rel_position - 0.2155} mm\n')
+
+        self.file.write(f's:Sc/EBT4_{rel_position}_Dose/Quantity = "DoseToMedium"\n')
+        self.file.write(f's:Sc/EBT4_{rel_position}_Dose/Component = "EBT4_{rel_position}_Active"\n')
+        self.file.write(f's:Sc/EBT4_{rel_position}_Dose/Surface = "{parent}/ZPlusSurface"\n')
+        self.file.write(f's:Sc/EBT4_{rel_position}_Dose/OutputFile = "DoseAtTank{rel_position}_{output_filename}"\n')
+        self.file.write(f's:Sc/EBT4_{rel_position}_Dose/OutputType = "csv"\n')
+        self.file.write(f's:Sc/EBT4_{rel_position}_Dose/IfOutputFileAlreadyExists = "Overwrite"\n')
 
     # X bending dipole
 

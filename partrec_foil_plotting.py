@@ -34,13 +34,76 @@ class partrec_foil_plotting:
         gamma_phase_space = gamma_phase_space.drop(
             phase_space[phase_space["PDG"] != 22].index
         )
+        # create DataFrame containing all other particle species
+        other_phase_space = phase_space.drop(
+            phase_space[phase_space["PDG"].isin([11, 22])].index
+        )
         phsp_dict = {
             "all": phase_space,
             "e": electron_phase_space,
             "y": gamma_phase_space,
+            "other": other_phase_space,
         }
 
         self.phsp_dict = phsp_dict
+    # % of beam inside a width x length rectangle centred on the beam axis,
+    # split by particle type. width, length in millimetres.
+    def get_pct_in_square(self, width, length):
+        pct_in_square = {}
+        for particle, phsp in self.phsp_dict.items():
+            n_total = len(phsp)
+            if n_total == 0:
+                pct_in_square[particle] = np.nan
+                continue
+            inside = phsp[(phsp["X"].abs() < width / 2) & (phsp["Y"].abs() < length / 2)]
+            pct_in_square[particle] = len(inside) / n_total * 100
+        return pct_in_square
+
+    # % of beam inside a circle of given radius centred on the beam axis,
+    # split by particle type. radius in millimetres.
+    def get_pct_in_circle(self, radius):
+        pct_in_circle = {}
+        for particle, phsp in self.phsp_dict.items():
+            n_total = len(phsp)
+            if n_total == 0:
+                pct_in_circle[particle] = np.nan
+                continue
+            inside = phsp[phsp["R"] < radius]
+            pct_in_circle[particle] = len(inside) / n_total * 100
+        return pct_in_circle
+
+    # % of beam inside a width x length rectangle centred on the beam axis AND
+    # below a given energy, split by particle type. width, length in millimetres;
+    # energy in the same units as the phase-space file's E column.
+    def get_pct_below_energy_in_square(self, width, length, energy):
+        pct_below_energy = {}
+        for particle, phsp in self.phsp_dict.items():
+            n_total = len(phsp)
+            if n_total == 0:
+                pct_below_energy[particle] = np.nan
+                continue
+            inside = phsp[
+                (phsp["X"].abs() < width / 2)
+                & (phsp["Y"].abs() < length / 2)
+                & (phsp["E"] < energy)
+            ]
+            pct_below_energy[particle] = len(inside) / n_total * 100
+        return pct_below_energy
+
+    # % of beam inside a circle of given radius centred on the beam axis AND
+    # below a given energy, split by particle type. radius in millimetres;
+    # energy in the same units as the phase-space file's E column.
+    def get_pct_below_energy_in_circle(self, radius, energy):
+        pct_below_energy = {}
+        for particle, phsp in self.phsp_dict.items():
+            n_total = len(phsp)
+            if n_total == 0:
+                pct_below_energy[particle] = np.nan
+                continue
+            inside = phsp[(phsp["R"] < radius) & (phsp["E"] < energy)]
+            pct_below_energy[particle] = len(inside) / n_total * 100
+        return pct_below_energy
+
     # show transverse beam profile and energy spectrum
     # fov is field of view of profile graphs
     # col is the virtual collimator radius for calculation of transmission
