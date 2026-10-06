@@ -62,7 +62,7 @@ def get_2nd_beamline(
     include_end : bool
         If True, includes the 'end' element.
     Q : float
-        Particle charge (default = 1).
+        Particle charge (default =-1).
 
     Returns
     -------
@@ -182,14 +182,19 @@ def build_rft_lattice(element_descriptions,
         elif etype in ['Screen', 'Marker']:
             elem = RF_Track.Screen()
         elif etype == 'Dipole':
-            elem = RF_Track.Drift(L)
+            # RBend (not Drift + set_static_Bfield): an RBend curves the local
+            # reference frame together with the bent trajectory, so downstream
+            # elements (e.g. an Absorber) stay aligned with the beam. Drift +
+            # set_static_Bfield bends the particles but leaves the frame
+            # straight, so the beam walks sideways relative to it and can
+            # miss a downstream absorber's aperture entirely.
             if '100' in name:
-                By = By_from_rbend_p(P_ref, 0.4713, 22.0)
+                angle_deg = 22.0
             elif '200' in name:
-                By = By_from_rbend_p(P_ref, 0.4713, -22.0)
+                angle_deg = -22.0
             else:
                 raise ValueError(f"Unknown dipole: {name}")
-            elem.set_static_Bfield(0.0, By, 0.0)
+            elem = RF_Track.RBend(0.4713, math.radians(angle_deg), P_ref / Q)
         else:
             continue
 
