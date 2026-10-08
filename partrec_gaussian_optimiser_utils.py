@@ -15,6 +15,9 @@ from astropy.table import Table
 from astropy.io import ascii
 from topasToDose import getDosemap
 from uniformity_fit import *
+
+# TOPAS working directory: input script, dose csvs, patient_beam.phsp and exported beams go here
+SIM_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "topas") + "/"
 # class of methods used for generating topas scripts for scattering foils
 # positions are all negative as e- beam by default goes in the negative directio
 
@@ -28,12 +31,16 @@ class partrec_gaussian_optimiser_utils():
         home_directory="/Applications/",
         no_of_threads=0,
         input_filename="topas_main.txt",
-        file_directory = '/Users/sabrinawang/Desktop/DPhil_Project/',
+        file_directory = SIM_DIR,
         count_log_interval = 10000,
         topas_dir = "/Applications/"
     ):
         # write new topas script
+        os.makedirs(file_directory, exist_ok=True)
         file = open(file_directory + input_filename, "w")
+        # z half-lengths (mm) of volumes created by the helpers, so children can be placed
+        # relative to their parent's upstream face. World is 0: its centre is the beam origin.
+        self.half_lengths = {"World": 0}
         # set number of threads depending on computing power available
         file.write("i:Ts/NumberOfThreads=" + str(no_of_threads) + "\n")
         file.write("i:Ts/ShowHistoryCountAtInterval=" + str(count_log_interval) +"\n")
@@ -115,6 +122,16 @@ class partrec_gaussian_optimiser_utils():
         self.file = file
     # define Gaussian beam in terms of phase space parameters
     # sigma, sigmap, E in mm, mrad, MeV respectively
+
+    # TOPAS TransZ is relative to the parent's centre and the beam travels towards -Z, so the
+    # parent's upstream face is at local +HL. position = distance from that face to the
+    # child's upstream face (for World: distance from the beam origin).
+    def _write_transz(self, name, parent, position, half_length):
+        if parent not in self.half_lengths:
+            raise KeyError("parent '" + parent + "' was not created by a helper, its half length is unknown")
+        self.half_lengths[name] = half_length
+        transz = self.half_lengths[parent] - position - half_length
+        self.file.write("d:Ge/" + name + "/TransZ = " + str(transz) + " mm\n")
 
     def mute_terminal_output(self):
         self.file.write('b:Ts/QuietMode = "True"  \n')
@@ -229,9 +246,7 @@ class partrec_gaussian_optimiser_utils():
         # define thickness of scatterer using previously define half length
         # topas works with half lengths rather than full lengths
         file.write("d:Ge/"+name+"/HL = " + str(thickness / 2) + " mm\n")
-        # set position of scatterer so that the edge is on the origin
-        file.write("d:Ge/"+name+"/TransZ = -" +
-                   str(position+thickness / 2) + " mm\n")
+        self._write_transz(name, parent, position, thickness / 2)
         
     def add_box(self, name, thickness, x,y, material, position,rotation=0, parent = "World"):
         file = self.file
@@ -245,9 +260,7 @@ class partrec_gaussian_optimiser_utils():
         file.write("d:Ge/"+name+"/HLY = "+ str(y/2)+ " mm\n")
         file.write("d:Ge/"+name+"/HLZ = "+ str(thickness/2)+ " mm\n")
         # topas works with half lengths rather than full lengths
-        # set position of scatterer so that the edge is on the origin
-        file.write("d:Ge/"+name+"/TransZ = -" +
-                   str(position+thickness / 2) + " mm\n")
+        self._write_transz(name, parent, position, thickness / 2)
         file.write("d:Ge/" + name + "/RotY=" + str(rotation)+ " deg\n")
 
 
@@ -348,8 +361,8 @@ class partrec_gaussian_optimiser_utils():
         # set half length of collimator
         # topas works with half lengths rather than full lengths
         file.write("d:Ge/Collimator_outer/HL = " + str(length/2)+ " mm   \n")  # set arbitrary length
-        # set position of collimator at appropriate distance from beam source
-        file.write("d:Ge/Collimator_outer/TransZ = -" + str(position) + " mm\n")
+        # position = upstream face of collimator
+        self._write_transz("Collimator_outer", parent, position, length / 2)
 
         file.write('s:Ge/Collimator/Type = "TsCylinder"\n')
         # set parent to world
@@ -379,8 +392,7 @@ class partrec_gaussian_optimiser_utils():
         # set small thickness for precision
         file.write("d:Ge/ScorerSurface/HLZ = 0.01 mm\n")    
         # set at appropriate distance for consistency between variables
-        file.write("d:Ge/ScorerSurface/TransZ = -" +
-                   str(position) + " mm\n")
+        self._write_transz("ScorerSurface", parent, position - 0.01, 0.01)
         # set up phase space scorer
         file.write('s:Sc/patient_beam/Quantity = "PhaseSpace"\n')
         # place at previously defined patient location
@@ -413,7 +425,10 @@ class partrec_gaussian_optimiser_utils():
         file.write("d:Ge/Tank/TransZ=-" +
                    str(position+depth/2) + " mm\n") #transZ is position of centre of tank
         
-    def add_tank_bins(self, position, depth, x_bins, y_bins, z_bins, output_filename, width=300, parent = "World"):
+    # z_bins > 1 bins the tank in depth; TOPAS bin 0 is the -Z (downstream) end, so the slice
+    # covering depth [d, d+1] mm with 1 mm bins is z_index = z_bins - 1 - d.
+    # surface: only for reproducing old runs -- a Surface on a dose scorer is not meaningful.
+    def add_tank_bins(self, position, depth, x_bins, y_bins, z_bins, output_filename, width=300, parent = "World", surface=None):
         file = self.file
         file.write('s:Ge/Tank/Type="TsBox"\n')
         file.write('s:Ge/Tank/Parent="' + parent + '"\n')
@@ -423,14 +438,14 @@ class partrec_gaussian_optimiser_utils():
         file.write("d:Ge/Tank/HLX =" +  str(width/2000) +" m\n") #half width here in m
         file.write("d:Ge/Tank/HLY = " + str(width/2000) +" m\n") 
         file.write("d:Ge/Tank/HLZ = " + str(depth / 2) + " mm\n")
-        file.write("d:Ge/Tank/TransZ=-" +
-                   str(position+depth/2) + " mm\n")
+        self._write_transz("Tank", parent, position, depth / 2)
         file.write("i:Ge/Tank/XBins = "+ str(x_bins) + "\n")
         file.write("i:Ge/Tank/YBins = "+ str(y_bins) + "\n")
         file.write("i:Ge/Tank/ZBins = "+ str(z_bins) + "\n")
         file.write('s:Sc/DoseAtTank/Quantity = "DoseToMedium" \n')
         file.write('s:Sc/DoseAtTank/Component = "Tank"\n')
-        file.write('s:Sc/DoseAtTank/Surface = "Tank/ZPlusSurface"\n')
+        if surface is not None:
+            file.write('s:Sc/DoseAtTank/Surface = "' + surface + '"\n')
         # file.write('s:Sc/DoseAtTank/OnlyIncludeParticlesOfGeneration = "Primary"\n')
         # output as csv file
         file.write('s:Sc/DoseAtTank/OutputFile = "DoseAtTank' + str(depth) + '_'+ output_filename+'"\n')
@@ -455,8 +470,7 @@ class partrec_gaussian_optimiser_utils():
         file.write("d:Ge/Tank/HLX =" +  str(width/2000) +" m\n") #half width here in m
         file.write("d:Ge/Tank/HLY = " + str(width/2000) +" m\n") 
         file.write("d:Ge/Tank/HLZ = " + str(depth / 2) + " mm\n")
-        file.write("d:Ge/Tank/TransZ=-" +
-                   str(position+depth/2) + " mm\n")
+        self._write_transz("Tank", parent, position, depth / 2)
         file.write("i:Ge/Tank/XBins = "+ str(x_bins) + "\n")
         file.write("i:Ge/Tank/YBins = "+ str(y_bins) + "\n")
         file.write("i:Ge/Tank/ZBins = "+ str(z_bins) + "\n")
@@ -680,7 +694,9 @@ class partrec_gaussian_optimiser_utils():
         topas_bin = os.path.join(self.topas_dir, "topas","bin", "topas")
         script_path = os.path.join(os.path.expanduser(self.file_directory), topas_filename)
 
+        # run from file_directory so TOPAS writes its outputs there
         os.system(
+        f'cd "{os.path.expanduser(self.file_directory)}" && '
         f'export TOPAS_G4_DATA_DIR="{os.path.join(self.topas_dir, "G4Data")}" && '
         f'export QT_QPA_PLATFORM_PLUGIN_PATH="{os.path.join(self.topas_dir,"topas","Frameworks")}" && '
         f'"{topas_bin}" "{script_path}"'

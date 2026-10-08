@@ -149,7 +149,7 @@ def four_quads(Lquad, k11, k12, k13, k14, Ldrift, N_particles, Energy ,L_drift_a
 
         fig.savefig(f"Output_figs/RFT_k1s={k11}_{k12}_{k13}_{k14}.png")
     if saveparams:
-        np.savetxt(f"RFT_k1s={k11}_{k12}_{k13}_{k14}_N={N_particles}.txt",M) 
+        np.savetxt(f"data/rft/RFT_k1s={k11}_{k12}_{k13}_{k14}_N={N_particles}.txt",M) 
     
     return M
 '''

@@ -78,7 +78,7 @@ def plotDoseMap(x, y, doseMap,fitted_map,P,sig,x_90, depth,output_filename):
     plt.savefig("Output_figs/" +output_filename+ f"Depth{depth}_SupergaussianFit.png")
 
 def fitDoseMap (n_particles, dose_depth,output_filename,acChargenC=10, zoom_factor=1, plot=True):
-    x,y, doseMap = getDosemap("DoseAtTank"+str(dose_depth)+ "_"+ output_filename+".csv",n_particles, dose_depth, output_filename, acChargenC, plot = False)
+    x,y, doseMap = getDosemap("data/topas/DoseAtTank"+str(dose_depth)+ "_"+ output_filename+".csv",n_particles, dose_depth, output_filename, acChargenC, plot = False)
     print(doseMap.shape)
     
     print(x.shape)

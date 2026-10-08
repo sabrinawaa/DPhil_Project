@@ -20,7 +20,7 @@ def main():
         # run script
         setup.run_topas(view_setup=False)
         # initialise plotting class
-        doseMap = getDosemap("DoseAtTank"+str(dose_depth)+".csv",n_particles, dose_depth,"ini_trial_", plot = True)
+        doseMap = getDosemap("data/topas/DoseAtTank"+str(dose_depth)+".csv",n_particles, dose_depth,"ini_trial_", plot = True)
         print(f"Scaled Dose Map Shape: {doseMap.shape}")
     
             

@@ -87,7 +87,7 @@ class RF_track_utils():
         self.phsp = self.trackedBunch.get_phase_space('%x %xp %y %yp %E %z')
         if saveparams:
             k1s_str = '_'.join(str(k) for k in self.k1s)  # Convert each element to string and join with '_'
-            np.savetxt(f"RFT_k1s={k1s_str}_N={int(N_particles )}.txt", self.phsp)
+            np.savetxt(f"data/rft/RFT_k1s={k1s_str}_N={int(N_particles )}.txt", self.phsp)
 
         return self.phsp
     
@@ -118,7 +118,7 @@ class RF_track_utils():
         self.phsp = self.trackedBunch.get_phase_space('%x %xp %y %yp %E %z')
         if saveparams:
             k1s_str = '_'.join(str(k) for k in self.k1s)  # Convert each element to string and join with '_'
-            np.savetxt(f"RFT_k1s={k1s_str}_N={int(N_particles )}.txt", self.phsp)
+            np.savetxt(f"data/rft/RFT_k1s={k1s_str}_N={int(N_particles )}.txt", self.phsp)
 
         return self.phsp  
 
@@ -145,7 +145,7 @@ class RF_track_utils():
         self.phsp = self.trackedBunch.get_phase_space('%x %xp %y %yp %E %z')
         if saveparams:
             k1s_str = '_'.join(str(k) for k in self.k1s)  # Convert each element to string and join with '_'
-            np.savetxt(f"RFT_k1s={k1s_str}_N={int(N_particles )}.txt", self.phsp)
+            np.savetxt(f"data/rft/RFT_k1s={k1s_str}_N={int(N_particles )}.txt", self.phsp)
 
         return self.phsp
 

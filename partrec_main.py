@@ -17,7 +17,7 @@ def main():
     # run script
     setup.run_topas(view_setup=False)
     # initialise plotting class
-    plotter = partrec_foil_plotting('patient_beam.phsp')
+    plotter = partrec_foil_plotting('data/topas/patient_beam.phsp')
     # plot transverse distributions and energy spectrum at patient
     plotter.show_transverse_beam(fov=50, col=50)
 

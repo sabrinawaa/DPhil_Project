@@ -43,7 +43,7 @@ quadlattice.plot_phsp()
 
 
 
-# R = np.loadtxt(f"RFT_k1s={k1_1}_{k1_2}_{k1_3}_{k1_4}_N={int(n_particles)}.txt") #retreive previously saved parameters
+# R = np.loadtxt(f"data/rft/RFT_k1s={k1_1}_{k1_2}_{k1_3}_{k1_4}_N={int(n_particles)}.txt") #retreive previously saved parameters
 # s2_depth, s2_radius = optimise_s2( R, N_trials=10) #optimise s2 params to get flat beam at water phantom
 
 s1_depths = [0.95] if system == "dual-scatterer" else [0]
@@ -56,11 +56,11 @@ for s1_depth in s1_depths:
 
                 setup = partrec_gaussian_optimiser_utils()
 
-                setup.export_phsp(R, dir + RFT_name + '.phsp')
+                setup.export_phsp(R, setup.file_directory + RFT_name + '.phsp')
 
-                setup.write_header(R, dir + RFT_name + '.header')
+                setup.write_header(R, setup.file_directory + RFT_name + '.header')
 
-                setup.import_beam_topas(dir+ RFT_name, position=0)
+                setup.import_beam_topas(setup.file_directory + RFT_name, position=0)
 
                 if system == "dual-scatterer":
                     # add pre-scatterer to magnify beam, thickness in mm to make beam 7.5mm radius
@@ -88,7 +88,7 @@ for s1_depth in s1_depths:
 
                 if profile == "intensity":
                         # initialise plotting class
-                    plotter = partrec_foil_plotting('patient_beam.phsp' ) #filename defined inside partrec_gaussian_optimiser_utils
+                    plotter = partrec_foil_plotting('data/topas/patient_beam.phsp' ) #filename defined inside partrec_gaussian_optimiser_utils
                     # plot transverse distributions and energy spectrum at patient
                     plotter.show_transverse_beam(output_filename, s1_depth, s2_depth, s2_radius,particle= 'e',fov= 250, col=75)
                     plotter.show_transverse_beam(output_filename, s1_depth, s2_depth, s2_radius,particle= 'y',fov=250, col=75)
@@ -96,7 +96,7 @@ for s1_depth in s1_depths:
                 elif profile == "dose":
 
         #             # initialise plotting class
-                    doseMap = getDosemap("DoseAtTank"+str(dose_depth)+ "_"+ output_filename+".csv",n_particles, dose_depth, output_filename, plot = True) 
+                    doseMap = getDosemap("data/topas/DoseAtTank"+str(dose_depth)+ "_"+ output_filename+".csv",n_particles, dose_depth, output_filename, plot = True) 
                     #note here plots first graph
                     fitDoseMap(n_particles, dose_depth, output_filename, zoom_factor=1, plot=True)
                     #plots second graph
