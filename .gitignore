@@ -8,6 +8,7 @@
 *.pptx
 *.txt
 !CLEAR_Beamline_Survey.txt
+!CLEAR_2nd_Beamline_Survey.txt
 !opt_results.txt
 *.csv
 *.gmad
@@ -26,3 +27,7 @@ test.py
 test_solenoid.py
 test_sophia.ipynb
 test_topas.py
+
+# generated results (already covered by */ above, listed for clarity)
+optimiser_comparison/
+outcmaes/

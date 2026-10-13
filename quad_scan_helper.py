@@ -8,7 +8,7 @@ from scipy.optimize import curve_fit
 
 QUAD_END_POSITIONS = np.array([30.297400000, 30.747400000, 31.197400000])  # m, exit of 760,765,770
 QUAD_LENGTH = 0.226  # m
-SCREEN_POSITION = 34.167400000  # m, thin screen
+SCREEN_POSITION = 34.042400000  # m, thin screen 875, 0.203 m from QDD0870 centre
 
 # QUAD_END_POSITIONS = np.array([18.509400000, 18.949400000, 19.389400000])  # m, exit of 350,355,360
 # QUAD_LENGTH = 0.226  # m

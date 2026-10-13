@@ -9,12 +9,19 @@ PRC_UniformDisk = None
 
 
 def merit_beam_Uniform(B1, R, transmission_goal=0.998):
+    M1 = B1.get_phase_space()
+    return merit_uniform_xy(M1[:, 0], M1[:, 2], R, transmission_goal)
+
+
+def merit_uniform_xy(x, y, R, transmission_goal=0.998, verbose=True):
+    '''merit_beam_Uniform on x, y arrays (mm): compares the percentiles of the beam projected
+    onto many angles with those of a uniform disk of radius R, plus a transmission term'''
     global PRC_UniformDisk
 
     # --- Phase space extraction ---
-    M1 = B1.get_phase_space()
-    X = M1[:, 0] - np.mean(M1[:, 0])
-    Y = M1[:, 2] - np.mean(M1[:, 2])
+    N_total = len(x)
+    X = x - np.mean(x)
+    Y = y - np.mean(y)
 
     # --- Constants ---
     PRC = np.arange(0, 102, 2)  # 0:2:100
@@ -98,10 +105,11 @@ def merit_beam_Uniform(B1, R, transmission_goal=0.998):
     # M_size *= 1e8 *0
 
     # Transmission term
-    print(np.sum(X**2 + Y**2 < R**2), len(M1[:, 0]))
-    transmission = np.sum(X**2 + Y**2 < R**2) / len(M1[:, 0])
+    transmission = np.sum(X**2 + Y**2 < R**2) / N_total
     M_transmission = 100 * max(transmission_goal - transmission, 0)**2
-    print(M_uniformity, M_kurtosis, M_transmission,R)
+    if verbose:
+        print(np.sum(X**2 + Y**2 < R**2), N_total)
+        print(M_uniformity, M_kurtosis, M_transmission,R)
 
     # Final merit value
     return M_uniformity + M_kurtosis + M_transmission
@@ -113,16 +121,18 @@ def mask2d(x,y,pc=60):
     mask = r <= threshold
     return x[mask],y[mask]
 
-def nearest_neighbor_test(x,y):
+def nearest_neighbor_test(x,y,k=1):
+    '''mean, std and CV of the distance to the k-th nearest neighbour; a larger k averages out
+    Poisson scatter so the CV follows density variations on a larger length scale'''
     points = np.array([x,y]).T
-    nbrs = NearestNeighbors(n_neighbors=2).fit(points)
+    nbrs = NearestNeighbors(n_neighbors=k+1).fit(points)
     distances, _ = nbrs.kneighbors(points)
-    nn_distances = distances[:, 1]  # skip self-distance
+    nn_distances = distances[:, k]  # column 0 is the self-distance
 
     mean_dist = nn_distances.mean()
     std_dist = nn_distances.std()
     cv = std_dist / mean_dist  
-    # coefficient of variation = 0.52 is poisson uniform, <0.52 is too uniform, >0.52 clustering
+    # for k=1: coefficient of variation = 0.52 is poisson uniform, <0.52 is too uniform, >0.52 clustering
 
     return mean_dist, std_dist, cv
 
@@ -132,8 +142,13 @@ def sum_2gaussians(x, A, x0, sigma_x):
 def sum_2gaussians_skewed(x, A, x0, sigma_x, m, c,mu):
     return A * (np.exp(-( (x-x0-mu)**2 /(2*sigma_x**2) )) + np.exp(-( (x+x0-mu)**2 /(2*sigma_x**2) )) ) + m * x + c
 
-def loss_2gauss(hist_x, bin_centers_x, hist_y, bin_centers_y):
+def loss_2gauss(hist_x, bin_centers_x, hist_y, bin_centers_y, target_ratio=1.1):
+    '''|x0/sigma - target_ratio| for x and y; x0/sigma = 1 is exactly flat at the centre,
+    1.1 gives a ~2.6% central dip'''
     p0 = [np.max(hist_x),  10, np.std(bin_centers_x)]
     params_x, _ = curve_fit(sum_2gaussians, bin_centers_x, hist_x, p0=p0)
     params_y, _ = curve_fit(sum_2gaussians, bin_centers_y, hist_y, p0=p0) 
-    return abs(params_x[1]/params_x[2] -1.1)  + abs(params_y[1]/params_y[2] -1.1) #x0/sigma  
+    # sum_2gaussians is symmetric in the signs of x0 and sigma, so the fit returns either sign
+    ratio_x = abs(params_x[1])/abs(params_x[2])
+    ratio_y = abs(params_y[1])/abs(params_y[2])
+    return abs(ratio_x - target_ratio) + abs(ratio_y - target_ratio)

@@ -264,9 +264,14 @@ class partrec_gaussian_optimiser_utils():
         file.write("d:Ge/" + name + "/RotY=" + str(rotation)+ " deg\n")
 
 
-    def add_gaussian_scatterer(self, max_thickness, radius, convolution_factor, N_slices, material, position, show_shape=False,kapton=False):
+    def add_gaussian_scatterer(self, max_thickness, radius, convolution_factor, N_slices, material, position, show_shape=False,kapton=False,
+                               tip_at_position=False):
         # position here refers to downstream face of scatterer (don't ask me why)
         # downstream face is base of scatterer 
+        # tip_at_position=True: position is the upstream face (tip) instead, matching RF-Track's
+        # design_optimisation.add_s2 where drift_to_s2 runs to the tip
+        if tip_at_position:
+            position = position + max_thickness
         # convolution factor = 1 for standard Gaussian scatterer
         # slice 1 is largest radius which is base of scatterer
         file = self.file
