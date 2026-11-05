@@ -62,8 +62,10 @@ class partrec_gaussian_optimiser_utils():
         file.write('s:Ma/Steel316/DefaultColor = "silver"\n')
 
         file.write('sv:Ma/Peek/Components = 3 "Carbon" "Hydrogen" "Oxygen"\n')
-        file.write('uv:Ma/Peek/Fractions = 3 0.76 0.08 0.16\n')
-        file.write('d:Ma/Peek/Density = 1.31 g/cm3\n')
+        # stoichiometric PEEK, C19H12O3 (mass fractions from 19 x 12.011, 12 x 1.008, 3 x 15.999);
+        # previously 0.76 / 0.08 / 0.16 at 1.31 g/cm3, which had about twice the hydrogen content
+        file.write('uv:Ma/Peek/Fractions = 3 0.7915 0.0420 0.1665\n')
+        file.write('d:Ma/Peek/Density = 1.32 g/cm3\n')
         file.write('s:Ma/Peek/DefaultColor = "lightblue"\n')
 
         file.write('sv:Ma/PMMA/Components = 3 "Carbon" "Hydrogen" "Oxygen"\n')
@@ -503,7 +505,7 @@ class partrec_gaussian_optimiser_utils():
         self.file.write(f'd:Ge/EBT4_{rel_position}_PETFront/HLX = 17.5 mm\n')
         self.file.write(f'd:Ge/EBT4_{rel_position}_PETFront/HLY = 20.0 mm\n')
         self.file.write(f'd:Ge/EBT4_{rel_position}_PETFront/HLZ = 0.0625 mm\n')
-        self.file.write(f'd:Ge/EBT4_{rel_position}_PETFront/TransZ = {150.0 - rel_position - 0.0625} mm\n')
+        self._write_transz(f"EBT4_{rel_position}_PETFront", parent, rel_position, 0.0625)
 
         self.file.write(f's:Ge/EBT4_{rel_position}_Active/Type = "TsBox"\n')
         self.file.write(f's:Ge/EBT4_{rel_position}_Active/Parent = "{parent}"\n')
@@ -511,7 +513,7 @@ class partrec_gaussian_optimiser_utils():
         self.file.write(f'd:Ge/EBT4_{rel_position}_Active/HLX = 17.5 mm\n')
         self.file.write(f'd:Ge/EBT4_{rel_position}_Active/HLY = 20.0 mm\n')
         self.file.write(f'd:Ge/EBT4_{rel_position}_Active/HLZ = 0.014 mm\n')
-        self.file.write(f'd:Ge/EBT4_{rel_position}_Active/TransZ = {150.0 - rel_position - 0.139} mm\n')
+        self._write_transz(f"EBT4_{rel_position}_Active", parent, rel_position + 0.125, 0.014)
         self.file.write(f"i:Ge/EBT4_{rel_position}_Active/XBins = " + str(x_bins) + "\n")
         self.file.write(f"i:Ge/EBT4_{rel_position}_Active/YBins = " + str(y_bins) + "\n")
         self.file.write(f"i:Ge/EBT4_{rel_position}_Active/ZBins = " + str(z_bins) + "\n")
@@ -522,7 +524,7 @@ class partrec_gaussian_optimiser_utils():
         self.file.write(f'd:Ge/EBT4_{rel_position}_PETBack/HLX = 17.5 mm\n')
         self.file.write(f'd:Ge/EBT4_{rel_position}_PETBack/HLY = 20.0 mm\n')
         self.file.write(f'd:Ge/EBT4_{rel_position}_PETBack/HLZ = 0.0625 mm\n')
-        self.file.write(f'd:Ge/EBT4_{rel_position}_PETBack/TransZ = {150.0 - rel_position - 0.2155} mm\n')
+        self._write_transz(f"EBT4_{rel_position}_PETBack", parent, rel_position + 0.153, 0.0625)
 
         self.file.write(f's:Sc/EBT4_{rel_position}_Dose/Quantity = "DoseToMedium"\n')
         self.file.write(f's:Sc/EBT4_{rel_position}_Dose/Component = "EBT4_{rel_position}_Active"\n')

@@ -31,3 +31,5 @@ test_topas.py
 # generated results (already covered by */ above, listed for clarity)
 optimiser_comparison/
 outcmaes/
+
+calibration/

@@ -39,7 +39,7 @@ TOPAS input and output files are written to `data/topas/`.
 |---|---|
 | `CLEAR_line.py` | Builds the CLEAR main beamline in RF-Track from `CLEAR_Beamline_Survey.txt`, with quadrupole current → k1 conversion. |
 | `CLEAR_2nd_line.py` | Same for the CLEAR second beamline (`CLEAR_2nd_Beamline_Survey.txt`), including the two ±22° dipoles as `RBend`s. Dipoles are set for `P_ref`; a beam at a different momentum is offset by the ~2.7 m dispersion of the dogleg. |
-| `design_optimisation.py` | Shared scatterer design code: S2 slice profile (`get_s2_params`), lattice builders (`add_s1`, `add_s2`, `build_scatterer_lattice`), the merit function `scatterer_merit` and the optimiser objective `loss`. |
+| `design_optimisation.py` | Shared scatterer design code: S2 slice profile (`get_s2_params`), calibrated materials (`AL`, `PEEK`, `AIR`, `COPPER`, `KAPTON`), lattice builders (`add_s1`, `add_s2`, `build_scatterer_lattice`, with air sections, kapton and exit windows), the merit function `scatterer_merit` and the optimiser objective `loss`. |
 | `flatness.py` | Merit function building blocks: projection-based uniform-disk merit (`merit_beam_Uniform`, `merit_uniform_xy`), k-th nearest-neighbour statistic (`nearest_neighbor_test`), double-Gaussian fit (`loss_2gauss`). |
 | `uniformity_fit.py` | Super-Gaussian / double-Gaussian fits to dose maps, `flatness()` profile metric, `plot_phsp` phase-space plots. |
 | `partrec_gaussian_optimiser_utils.py` | Writes TOPAS input files: beam sources, flat and Gaussian scatterers, cylinders/boxes, water tank scorers, phase-space import/export, `run_topas`. |
@@ -121,16 +121,34 @@ These are kept for reference and have been superseded by the modules and noteboo
 `export_csvcombined.py` (merges TOPAS CSVs), and `submitFileScripter.py` (batch job
 submission files).
 
-## Known modelling differences between RF-Track and TOPAS
+## Scattering materials in RF-Track (calibrated against TOPAS)
 
-These cause the RF-Track optimum to disagree with the TOPAS field:
+RF-Track's multiple-scattering model (Wentzel core + Fruehwirth tails, both on by default)
+depends on Z and A, not only on the radiation length, and it treats unknown material names
+(`'kapton'`, `'copper'`, `'aluminum'`, ...) as vacuum. The materials in `design_optimisation.py`
+are therefore given explicitly, with effective values calibrated so that RF-Track reproduces the
+Geant4 (`g4em-standard_opt4`) core scattering width of a 198 MeV pencil beam:
 
-- **Air**: RF-Track drifts are vacuum, while the TOPAS world is `Air`. Over the ~3 m from S1 to
-  the tank this makes the field about 10 mm larger at r90 and fills in the centre. Model the
-  drifts to match the real vacuum/air layout.
-- **S2 material**: S2 is built in RF-Track with Z = 37, A = 288.31 (Z/A = 0.13). PEEK has
-  Z/A ≈ 0.52.
-- **S2 orientation**: in TOPAS the tip faces upstream; in RF-Track the base (largest slice) does.
-  The two codes also measure S2 positions from different faces.
-- **Physics**: RF-Track has no bremsstrahlung, no secondary particles and no single-scattering
-  tails; TOPAS (Geant4 `g4em-standard_opt4`) includes all three.
+| Material | (X0 [cm], Z, A, ρ [g/cm³], I [eV]) | Uncalibrated value it replaces |
+|---|---|---|
+| `AL` (S1) | (8.897, 14, 26.982, 2.7, 166) | Z = 13: 8% too little scattering |
+| `PEEK` (S2) | (31.9, 35.2, 288.31, 1.32, −1) | Z = 37: 5–7% too much |
+| `AIR` | (30390, 3.6, 7.21, 0.0012048, 85.7) | built-in `'air'`: 36% too little |
+| `COPPER` | (1.436, 32, 63.546, 8.96, 322) | Z = 29: 15–26% too little |
+| `KAPTON` | (28.57, 6.5, 12.67, 1.42, 79.6) | unchanged (within 1–3%) |
+
+For Al, air and Cu these are correction factors for RF-Track's model, not material properties.
+The old values are kept as `AL_UNCALIBRATED`, `PEEK_Z37`, `AIR_BUILTIN` and `COPPER_REAL`
+(pass e.g. `s1_material=AL_UNCALIBRATED` to `loss` / `build_scatterer_lattice`) so results
+made before the calibration can be regenerated.
+
+- `scattering_calibration.py`: the pencil-beam calibration (`topas`, then `compare`).
+- `calibration_field_tests.py`: the calibrated combination checked against TOPAS on the
+  `simulate_PDD_CLEAR` and `CLARA_design` geometries, with and without windows/air
+  (`pdd`, `pdd_bare`, `clara`, `clara_bare`).
+
+Remaining differences between the codes: no single effective Z fits both the core and the tails
+of PEEK and air (the tails come out 3–5% wide in r95); RF-Track has no bremsstrahlung or secondary
+particles, no annular absorbers (the Cu coating is a full disk in `design_optimisation`), and
+cannot model the collimators (use hard apertures). The calibration was done at 198 MeV; a field
+test at 250 MeV (CLARA) still matched, but redo it for very different energies.

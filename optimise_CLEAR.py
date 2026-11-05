@@ -49,7 +49,7 @@ end = 'CA.DHJ0840' #'CA.STLINE$END'
 CLEAR_lattice = get_beamline("CLEAR_Beamline_Survey.txt",start, end, P_ref, quad_currents)
 print(CLEAR_lattice.get_length())
 CLEAR_lattice.append(rft.Drift(0.084))
-S1 = rft.Absorber(0.0001,8.897, 13,26.982,2.7, 166)
+S1 = rft.Absorber(0.0001,8.897, 14,26.982,2.7, 166)  # calibrated vs TOPAS, see design_optimisation.AL / PEEK
 # S1 = rft.Absorber(0.0001,'air')
 S1.disable_energy_straggling()
 S1.set_shape ('circular', 1,1  )
@@ -59,7 +59,7 @@ CLEAR_lattice.append(rft.Drift(0.532)) #end of s1 to s2
 s2_thickness = [0.688, 0.778, 0.581, 0.386]
 s2_radii = [0.4, 0.8, 1.2, 1.6]
 for i in range(len(s2_thickness)):
-    Slice = rft.Absorber(s2_thickness[i]/1000,31.9, 37, 288.31,1.32,-1)
+    Slice = rft.Absorber(s2_thickness[i]/1000,31.9, 6.4, 12.301,1.32,-1)  # calibrated vs TOPAS, see design_optimisation.AL / PEEK
     Slice.disable_energy_straggling()
     Slice.set_shape ('circular',  abs(s2_radii[i])/1000,abs(s2_radii[i])/1000 )
     CLEAR_lattice.append(Slice)

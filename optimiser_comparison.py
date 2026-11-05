@@ -5,14 +5,16 @@ same merit function, then re-scores every result on a 1e5-particle bunch with th
 seeds so all methods are compared on equal terms.
 
 Setup matches CLEAR_RD.ipynb: CLEAR 2nd beamline (CS.2NDBL$START -> CS.BTV0420, quads off,
-198 MeV/c), beam re-centred at the beamline exit, Al S1 / PEEK S2 with drifts 2.243, 0.563,
-2.45 m, 'nn' merit with k = 0.1% of particles, target radius 25 mm. Within a run every merit
+198 MeV/c), beam re-centred at the beamline exit, calibrated Al S1 / PEEK S2 with drifts 2.243,
+0.563, 2.45 m, 0.25 mm kapton on the S2 base, kapton + Cu vacuum window and 0.3 m of air before the
+plane, 'nn' merit with k = 0.1% of particles over the central 45%, target radius 25 mm. Within a run every merit
 evaluation uses the same RF-Track seed (common random numbers), each restart/run its own seed.
 
 Usage:
     python optimiser_comparison.py                 # full comparison (~20 min with 4 workers)
     python optimiser_comparison.py --quick         # small smoke test (~1 min)
     python optimiser_comparison.py --methods cma   # subset of methods
+    python optimiser_comparison.py --methods powell --merit andrea --tag andrea   # projection merit
 Results go to optimiser_comparison/<tag>/results.json, one log per job next to it.
 '''
 import argparse
@@ -35,6 +37,8 @@ CONFIG = dict(
     N_opt=50000, N_rescore=100000,
     target_size=25, nn_frac=0.001, transmission_goal=0.6,
     drift_to_s1=2.243, drift_to_s2=0.563, drift_to_phsp=2.45,
+    air_before_phsp=0.3, kapton=0.25,      # m of air before the plane; mm of kapton on the S2 base
+    merit='nn', nn_region=45,
     bounds=[(0.01, 5), (0.01, 30), (0.01, 30)],   # s1_l, s2_width, s2_depth in mm
     x0_low=[0.01, 0.01, 0.01], x0_high=[5, 15, 15],
     n_powell=5, n_cma=3, n_cobyqa=5,
@@ -72,8 +76,10 @@ def setup(cfg):
 
     loss = partial(do.loss, target_size=cfg['target_size'], window=False,
                    drift_to_s1=cfg['drift_to_s1'], drift_to_s2=cfg['drift_to_s2'],
-                   drift_to_phsp=cfg['drift_to_phsp'], merit='nn',
-                   transmission_goal=cfg['transmission_goal'], nn_frac=cfg['nn_frac'])
+                   drift_to_phsp=cfg['drift_to_phsp'], air_before_phsp=cfg['air_before_phsp'],
+                   kapton=cfg['kapton'], exit_window=[(0.12, do.KAPTON), (0.005, do.COPPER)],
+                   merit=cfg['merit'], transmission_goal=cfg['transmission_goal'],
+                   nn_frac=cfg['nn_frac'], nn_region=cfg['nn_region'])
     return centred_bunch, loss
 
 
@@ -149,9 +155,10 @@ def main():
     parser.add_argument('--quick', action='store_true', help='small smoke test, results not meaningful')
     parser.add_argument('--workers', type=int, default=4, help='parallel jobs (RF-Track is multithreaded too)')
     parser.add_argument('--tag', default=None, help='output sub-directory name')
+    parser.add_argument('--merit', default=CONFIG['merit'], help="merit function ('nn', 'andrea', ...)")
     args = parser.parse_args()
 
-    cfg = dict(CONFIG, **(QUICK if args.quick else {}))
+    cfg = dict(CONFIG, **(QUICK if args.quick else {}), merit=args.merit)
     out_dir = os.path.join(PROJECT_DIR, 'optimiser_comparison', args.tag or ('quick' if args.quick else 'full'))
     os.makedirs(out_dir, exist_ok=True)
 

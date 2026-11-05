@@ -327,8 +327,13 @@ def plot_phsp(T, M, n_bins=50, fov=200, title=None, slice_width=1): #cleaner ver
     params_y, _ = curve_fit(supergaussian1D, bin_centers_y, hist_y, p0=p0)
 
     p00 = [np.max(hist_x), 10, np.std(phsp_xslice[:, 0])]
-    params_xx, _ = curve_fit(sum_2gaussians, bin_centers_x, hist_x, p0=p00)
-    params_yy, _ = curve_fit(sum_2gaussians, bin_centers_y, hist_y, p0=p00)
+    def fit_2g(centres, hist):   # a failed fit only removes the curve from the plot
+        try:
+            return curve_fit(sum_2gaussians, centres, hist, p0=p00, maxfev=20000)[0]
+        except RuntimeError:
+            return np.full(3, np.nan)
+    params_xx = fit_2g(bin_centers_x, hist_x)
+    params_yy = fit_2g(bin_centers_y, hist_y)
 
     xy_fit_curve = np.linspace(-fov, fov, 500)
 
